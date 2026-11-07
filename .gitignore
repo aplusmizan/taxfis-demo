@@ -1,0 +1,7 @@
+# Müşteri verisi asla depoya girmez
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.json
+data/

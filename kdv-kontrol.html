@@ -1,0 +1,1017 @@
+<title>Plusmizan KDV Kontrol</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+/* Layout: kontrol defteri — üstte dönem özeti ve süzgeç, açık firmanın bulgu kâğıdı, altta firma cetveli */
+:root{
+  --bg:#f3f4f8; --surface:#ffffff; --sunk:#e9ebf3; --line:#d4d7e5; --fg:#181a2e; --muted:#5e6280;
+  --accent:#2e3175; --accent-fg:#ffffff; --accent-soft:#e3e4f3;
+  --warn:#a15c00; --warn-soft:#fbecd3; --bad:#b3261e; --bad-soft:#f8dcd8; --ok:#1e7a3c; --ok-soft:#dcf0e2;
+  --f-ui:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11121c; --surface:#191b29; --sunk:#202335; --line:#2f3248; --fg:#e6e7f1; --muted:#9a9db8;
+  --accent:#a2a6ee; --accent-fg:#11132e; --accent-soft:#272a4d;
+  --warn:#e5a34a; --warn-soft:#3a2c14; --bad:#f08a80; --bad-soft:#3d1d1a; --ok:#6fcf8f; --ok-soft:#173222; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11121c; --surface:#191b29; --sunk:#202335; --line:#2f3248; --fg:#e6e7f1; --muted:#9a9db8;
+  --accent:#a2a6ee; --accent-fg:#11132e; --accent-soft:#272a4d;
+  --warn:#e5a34a; --warn-soft:#3a2c14; --bad:#f08a80; --bad-soft:#3d1d1a; --ok:#6fcf8f; --ok-soft:#173222; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;margin-bottom:12px}
+.brand{display:flex;flex-direction:column;margin-right:auto}
+.brand b{font-size:20px;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:12.5px}
+label.sm,.sm{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+select,input,button{font:inherit;color:inherit}
+select,input[type=text],input[type=month],input[type=search]{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 9px;min-width:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:600;white-space:nowrap}
+button:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:4px 8px}
+button.ghost:hover{color:var(--bad)}
+button:disabled{opacity:.5;cursor:not-allowed}
+nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+nav.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);padding:9px 14px}
+nav.tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent)}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.stack{display:grid;gap:16px}
+.stat{display:flex;flex-wrap:wrap;gap:14px 28px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.stat div{display:flex;flex-direction:column}
+.stat b{font-family:var(--f-num);font-size:20px;font-weight:600}
+.stat .bad b{color:var(--bad)}.stat .warn b{color:var(--warn)}.stat .ok b{color:var(--ok)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px}
+.seg{display:flex;flex-wrap:wrap;gap:2px}
+.seg button{padding:4px 9px;font-size:12px;border-radius:4px}
+.seg button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+table.grid{font-size:13px}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+table.grid th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--sunk);position:sticky;top:0;white-space:nowrap}
+table.grid .r{text-align:right}table.grid .c{text-align:center}
+table.grid td.name{min-width:220px}
+table.grid tr.sel td{background:var(--accent-soft)}
+table.grid tr.done td{color:var(--muted)}table.grid tr.done td.name{text-decoration:line-through}
+.link{background:transparent;border:0;padding:0;font-weight:600;color:var(--fg);text-align:left;white-space:normal;cursor:pointer}
+.link:hover{color:var(--accent);text-decoration:underline}
+.sheet{padding:16px;display:grid;gap:14px;border-top:4px solid var(--accent);border-radius:8px}
+.sheethead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
+.sheethead h2{margin:0;font-size:17px;text-wrap:balance}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.form{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.form .f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.form .grow{flex:1 1 240px}
+.checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+.checks label{display:flex;gap:5px;align-items:center}
+.note{padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;padding:12px 16px 16px}
+.empty{padding:36px 20px;text-align:center;color:var(--muted)}
+h3{font-size:14px;margin:0}
+.toast{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:6px;font-weight:600;z-index:20;max-width:min(420px,calc(100vw - 32px))}
+.up{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)}
+.drop{position:relative;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;padding:22px 16px;border:2px dashed var(--line);border-radius:8px;background:var(--surface);cursor:pointer;text-align:center}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.drop:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.ozgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px}
+.ozgrid .f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ozgrid input{text-align:right;font-family:var(--f-num)}
+.akt select{display:block;width:100%;max-width:340px;font-size:12px;margin:2px 0}
+.akt td{vertical-align:top}.akt tr.bos td{background:var(--bad-soft)}.akt tr.kontrol td{background:var(--warn-soft)}
+.akg{font-size:11.5px;margin-top:4px;max-width:260px}.aksec{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.aksec button{font-size:11px;padding:2px 6px;text-align:left}
+.paket{display:grid;gap:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px 12px}
+.paketbas{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.pk{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+.pk:first-of-type{border-top:0}
+.pki{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:var(--sunk);color:var(--muted)}
+.pk.var .pki{background:var(--ok-soft);color:var(--ok)}.pk.eksik .pki{background:var(--warn-soft);color:var(--warn)}
+.pk.ay .pkl,.pk.firma .pkl{color:var(--muted)}
+.pks{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.pks button{font-size:12px;padding:3px 8px}
+@media (max-width:560px){.pk{grid-template-columns:20px 1fr}.pks{grid-column:2;justify-content:flex-start}}
+.note.err{background:var(--warn-soft);color:var(--warn)}
+.note.okn{background:var(--ok-soft);color:var(--ok)}
+.sonuc{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:8px}
+table.ktab td,table.ktab th{padding:5px 7px;white-space:nowrap}
+table.ktab td.name{min-width:200px;white-space:normal}
+table.ktab tr.par td{font-weight:600;background:var(--sunk)}
+table.ktab td.src{color:var(--accent)}
+td.kfark{background:var(--bad-soft);color:var(--bad);font-weight:600}
+ol.notlar{margin:0;padding-left:20px;display:grid;gap:6px;max-width:110ch}
+.posin{background:var(--warn-soft)!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>Plusmizan · KDV-1 Kontrol</b><span id="sub">Bağlanıyor…</span></div>
+    <div class="form"><div class="f"><label class="sm" for="donem">Beyan dönemi</label><input type="month" id="donem"></div></div>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="kontrol" aria-selected="true">Kontrol <span id="rozet"></span></button>
+    <button role="tab" data-tab="aktarim">Aktarım</button>
+    <button role="tab" data-tab="analiz">Hata analizi</button>
+    <button role="tab" data-tab="firmalar">Firmalar</button>
+  </nav>
+  <main id="main"><div class="panel empty">Kontrol kayıtları yükleniyor. Her firma için kontrol sonucu, açık bulgular ve şef onayı burada görünecek.</div></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const DUR={bekliyor:['Kontrol bekliyor',''],bulgu:['Açık bulgu var','bad'],temiz:['Temiz','ok'],onay:['Şef onayladı','ok']};
+const SIRA={bulgu:0,bekliyor:1,temiz:2,onay:3};
+const KAT=['Mizan–beyan farkı','Satış / e-Arşiv','Alış / e-Fatura','e-SMM','Z raporu','POS / kredi kartı','Tevkifat / KDV-2','İndirim kısıtı (KKEG)','Devreden KDV','İptal / mükerrer','Diğer'];
+const KAY=[['beyan','Beyanname'],['mizan','Mizan'],['defter','Defter'],['muavin','Muavin'],['ayrim','KDV ayrım'],['earsiv','e-Arşiv / e-Fatura'],['esmm','e-SMM'],['pusula','Gider pusulası'],['z','Z raporu'],['pos','POS']];
+const OZ=[['hesaplanan','Hesaplanan KDV'],['indirimler','İndirimler toplamı'],['devredenOnceki','Önceki dönemden devreden'],['odenecek','Ödenecek KDV'],['sonrakiDevreden','Sonraki döneme devreden'],['krediKarti','Kredi kartı satırı'],['pos','GİB POS toplamı']];
+const S={db:null,dl:null,firmalar:{},kontroller:{},aktarim:{},sablonlar:{},ready:0,tab:'kontrol',donem:null,sec:null,f:'hepsi',q:''};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2=n=>Math.round((+n||0)*100)/100;
+const tl=n=>(+n||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const parseTL=v=>{let s=String(v||'').trim().replace(/\s|TL/gi,'');if(!s)return 0;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=parseFloat(s);return isNaN(n)?0:n};
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today=()=>iso(new Date());
+const trDate=s=>{if(!s)return '';const [y,m,d]=s.split('-');return `${d}.${m}.${y}`};
+const norm=s=>String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').normalize('NFD').replace(/[̀-ͯ]/g,'');
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>e.hidden=true,3000)}
+const kKey=()=>S.donem.replace('/','-');
+const kId=mid=>kKey()+'_'+mid;
+const kDoc=mid=>S.kontroller[kId(mid)];
+const firmalar=()=>Object.entries(S.firmalar).sort((a,b)=>(a[1].sira||0)-(b[1].sira||0)||a[1].ad.localeCompare(b[1].ad,'tr'));
+const kFirmalar=()=>firmalar().filter(([,f])=>f.kdv1&&f.durum!=='Kapalı');
+function acik(k){const b=(k&&k.bulgular)||[];return{r:b.filter(x=>!x.duzeltildi&&x.seviye==='kirmizi').length,s:b.filter(x=>!x.duzeltildi&&x.seviye!=='kirmizi').length}}
+function durum(k){if(!k||!k.kontrolTarihi)return 'bekliyor';const a=acik(k);if(a.r||a.s)return 'bulgu';if(k.durum==='onay')return 'onay';return 'temiz'}
+async function setDoc(path,data){try{await S.db.doc(path).set(data)}catch(e){toast(e.code==='permission_denied'||e.code==='not_granted'?'Bu sayfada değişiklik yetkiniz yok':'Kaydedilemedi: '+(e.code||e.message));throw e}}
+async function kSet(mid,patch){const id=kId(mid);const d={mid,donem:S.donem,...(S.kontroller[id]||{}),...patch};S.kontroller[id]=d;await setDoc('kontroller/'+id,d)}
+async function fSet(mid,patch){const d={...(S.firmalar[mid]||{}),...patch};S.firmalar[mid]=d;await setDoc('firmalar/'+mid,d)}
+
+function render(){
+  $('#donem').value=S.donem.replace('/','-');
+  const fs=kFirmalar();const red=fs.reduce((a,[id])=>a+acik(kDoc(id)).r,0);
+  $('#rozet').innerHTML=red?`<span class="chip bad">${red}</span>`:'';
+  $('#sub').textContent=`${S.donem} dönemi · ${fs.length} KDV-1 mükellefi`;
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
+  if(S.ready<2)return;
+  $('#main').innerHTML={kontrol:vKontrol,aktarim:vAktarim,analiz:vAnaliz,firmalar:vFirmalar}[S.tab]();
+}
+function vKontrol(){
+  const fs=kFirmalar();
+  if(!fs.length)return `<div class="panel empty">KDV-1 veren firma tanımlı değil. <b>Firmalar</b> sekmesinden işaretleyin.</div>`;
+  const n={bekliyor:0,bulgu:0,temiz:0,onay:0};let aR=0,aS=0;
+  let rows=fs.map(([id,f])=>{const k=kDoc(id);const du=durum(k);n[du]++;const a=acik(k);aR+=a.r;aS+=a.s;return{id,f,k,du,a}});
+  rows=rows.filter(x=>(S.f==='hepsi'||x.du===S.f)&&(!S.q||norm(x.f.ad).includes(norm(S.q)))).sort((x,y)=>(SIRA[x.du]-SIRA[y.du])||(y.a.r-x.a.r)||(y.a.s-x.a.s));
+  if(S.sec&&!fs.some(([id])=>id===S.sec))S.sec=null;
+  const fb=(k,l,c)=>`<button data-f="${k}" aria-pressed="${S.f===k}">${l} <span class="num">${c}</span></button>`;
+  const tr=rows.map(x=>{const [lab,cls]=DUR[x.du];const kay=(x.k&&x.k.kaynaklar)||{};const eks=x.k?KAY.filter(([c])=>!kay[c]).length:null;
+    return `<tr${x.id===S.sec?' class="sel"':''}><td class="name"><button class="link" data-sec="${x.id}">${esc(x.f.ad)}</button></td><td>${esc(x.k?.hazirlayan||'—')}</td><td><span class="chip ${cls}">${lab}</span></td><td>${x.a.r?`<span class="chip bad">${x.a.r} kırmızı</span> `:''}${x.a.s?`<span class="chip warn">${x.a.s} sarı</span>`:''}${!x.a.r&&!x.a.s?'<span class="muted">—</span>':''}</td><td class="num">${trDate(x.k?.kontrolTarihi)||'—'}</td><td>${eks==null?'<span class="muted">—</span>':eks?`<span class="chip">${KAY.length-eks}/${KAY.length} kaynak</span>`:'<span class="chip ok">tüm kaynaklar</span>'}</td></tr>`}).join('');
+  return `<div class="stack"><div class="panel"><div class="stat">
+    <div class="bad"><span class="muted">Açık kırmızı bulgu</span><b>${aR}</b></div>
+    <div class="warn"><span class="muted">Açık sarı bulgu</span><b>${aS}</b></div>
+    <div><span class="muted">Kontrol bekliyor</span><b>${n.bekliyor}</b></div>
+    <div class="ok"><span class="muted">Temiz veya onaylı</span><b>${n.temiz+n.onay}</b></div>
+    <div><span class="muted">KDV-1 mükellefi</span><b>${fs.length}</b></div></div>
+    <div class="bar"><div class="seg" role="group" aria-label="Duruma göre süz">${fb('hepsi','Tümü',fs.length)}${fb('bulgu','Bulgu var',n.bulgu)}${fb('bekliyor','Bekliyor',n.bekliyor)}${fb('temiz','Temiz',n.temiz)}${fb('onay','Onaylı',n.onay)}</div>
+    <input type="search" id="q" placeholder="Firma ara" value="${esc(S.q)}" aria-label="Firma ara" style="flex:1 1 180px"><button data-xl="1">Bulguları Excel'e aktar</button></div></div>
+  ${S.sec?vDetay(S.sec):''}
+  <div class="panel"><div class="tblwrap" style="max-height:64vh"><table class="grid"><thead><tr><th>Firma</th><th>Hazırlayan</th><th>Durum</th><th>Açık bulgu</th><th>Son kontrol</th><th>Kaynaklar</th></tr></thead><tbody>${tr||'<tr><td colspan="6" class="empty">Bu süzgece uyan firma yok.</td></tr>'}</tbody></table></div></div></div>`}
+function vDetay(mid){const f=S.firmalar[mid];const k=kDoc(mid)||{};const du=durum(kDoc(mid));const [lab,cls]=DUR[du];const b=k.bulgular||[];const kay=k.kaynaklar||{};const oz=k.ozet||{};const a=acik(k);
+  const ozH=OZ.filter(([c])=>oz[c]!=null).map(([c,l])=>`<div><span class="muted">${l}</span><b style="font-size:16px">${tl(oz[c])}</b></div>`).join('');
+  const bH=b.map((x,i)=>`<tr class="${x.duzeltildi?'done':''}"><td class="c"><input type="checkbox" id="duz_${i}" data-duz="${i}" ${x.duzeltildi?'checked':''} aria-label="Düzeltildi"></td><td><span class="chip ${x.seviye==='kirmizi'?'bad':'warn'}">${x.seviye==='kirmizi'?'Kırmızı':'Sarı'}</span></td><td>${esc(x.kategori||'')}</td><td class="name">${esc(x.aciklama||'')}${x.oneri?`<div class="muted" style="font-size:12px;margin-top:2px">Yapılacak: ${esc(x.oneri)}</div>`:''}</td><td class="r num">${x.tutar?tl(x.tutar):''}</td><td><button class="ghost" data-sil="${i}" aria-label="Bulguyu sil">✕</button></td></tr>`).join('');
+  return `<div class="panel sheet">
+  <div class="sheethead"><div><h2>${esc(f.ad)}</h2><div class="muted">${esc(S.donem)} KDV-1 · <span class="chip ${cls}">${lab}</span>${k.durum==='onay'&&k.onayTarihi?` · onay ${trDate(k.onayTarihi)}`:''}</div></div>
+  <div class="actions"><button class="${k.durum==='onay'?'':'pri'}" data-onay="1" ${k.durum!=='onay'&&!k.kontrolTarihi?'disabled title="Önce kontrolü çalıştırın"':a.r||a.s?'disabled title="Önce açık bulguları kapatın"':''}>${k.durum==='onay'?'Onayı geri al':'Şef onayı ver'}</button><button data-sec="">Kapat</button></div></div>
+  <div class="form"><div class="f"><label class="sm" for="haz">Hazırlayan</label><input type="text" id="haz" value="${esc(k.hazirlayan||'')}" placeholder="Beyannameyi hazırlayan"></div>
+  <div class="f grow"><span class="sm">Kontrole giren kaynaklar</span><div class="checks">${KAY.map(([c,l])=>`<label><input type="checkbox" id="kay_${c}" data-kay="${c}" ${kay[c]?'checked':''}> ${l}</label>`).join('')}</div></div></div>
+  ${vYukle(mid)}
+  ${k.not?`<div class="note">${esc(k.not)}</div>`:''}
+  <div class="tblwrap"><table class="grid"><thead><tr><th class="c">Düzeltildi</th><th>Seviye</th><th>Kategori</th><th>Bulgu</th><th class="r">Tutar</th><th></th></tr></thead><tbody>${bH||'<tr><td colspan="6" class="empty">Bulgu yok.</td></tr>'}</tbody></table></div>
+  <form id="bForm" class="form"><div class="f"><label class="sm" for="sev">Seviye</label><select id="sev"><option value="kirmizi">Kırmızı</option><option value="sari">Sarı</option></select></div>
+  <div class="f"><label class="sm" for="kat">Kategori</label><select id="kat">${KAT.map(c=>`<option>${c}</option>`).join('')}</select></div>
+  <div class="f grow"><label class="sm" for="acik">Bulgu</label><input type="text" id="acik" placeholder="Ne yanlış, hangi belgede"></div>
+  <div class="f"><label class="sm" for="tutar">Tutar</label><input type="text" id="tutar" inputmode="decimal" placeholder="0,00" style="width:120px"></div>
+  <button class="pri" type="submit">Bulgu ekle</button><button type="button" data-temiz="1">Kontrol edildi, bulgu yok</button></form>${vSonuc(mid)}</div>`}
+function vAnaliz(){const hz={},kt={};let top=0;const ks=Object.values(S.kontroller);
+  if(!ks.length)return `<div class="panel empty">Henüz kontrol kaydı yok. İlk kontroller girildikçe hangi hazırlayanın hangi konuda hata yaptığı burada sayıyla görünür.</div>`;
+  for(const k of ks){const h=k.hazirlayan||'Belirtilmemiş';hz[h]=hz[h]||{k:0,b:0,r:0,a:0};hz[h].k++;for(const x of k.bulgular||[]){top++;hz[h].b++;if(x.seviye==='kirmizi')hz[h].r++;if(!x.duzeltildi)hz[h].a++;const c=x.kategori||'Diğer';kt[c]=(kt[c]||0)+1}}
+  const hR=Object.entries(hz).sort((a,b)=>b[1].b-a[1].b).map(([h,v])=>`<tr><td>${esc(h)}</td><td class="r num">${v.k}</td><td class="r num">${v.b}</td><td class="r num">${v.r}</td><td class="r num">${(v.b/v.k).toFixed(1).replace('.',',')}</td><td class="r num">${v.a}</td></tr>`).join('');
+  const kR=Object.entries(kt).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td class="r num">${v}</td><td class="r num">%${Math.round(v*100/top)}</td></tr>`).join('');
+  return `<div class="panel"><div style="padding:16px 16px 0;display:grid;gap:4px"><h3>Tüm dönemler</h3><p class="muted" style="margin:0">Bulgular beyannameyi hazırlayana yazılır. En çok tekrar eden kategori, ilk eğitim konusudur.</p></div>
+  <div class="duo"><div class="tblwrap"><table class="grid"><thead><tr><th>Hazırlayan</th><th class="r">Kontrol</th><th class="r">Bulgu</th><th class="r">Kırmızı</th><th class="r">Kontrol başı</th><th class="r">Açık</th></tr></thead><tbody>${hR}</tbody></table></div>
+  <div class="tblwrap"><table class="grid"><thead><tr><th>Kategori</th><th class="r">Bulgu</th><th class="r">Pay</th></tr></thead><tbody>${kR||'<tr><td colspan="3" class="muted">Henüz bulgu yok</td></tr>'}</tbody></table></div></div></div>`}
+function vFirmalar(){const fs=firmalar();
+  const tr=fs.map(([id,f])=>`<tr><td class="name">${esc(f.ad)}</td><td>${esc(f.tur||'')}</td><td class="c"><input type="checkbox" id="kdv_${id}" data-kdv="${id}" ${f.kdv1?'checked':''} aria-label="KDV-1 veriyor"></td><td><select id="dur_${id}" data-dur="${id}" aria-label="Durum"><option ${f.durum!=='Kapalı'?'selected':''}>Aktif</option><option ${f.durum==='Kapalı'?'selected':''}>Kapalı</option></select></td></tr>`).join('');
+  return `<div class="stack"><div class="panel"><form id="fForm" class="form" style="padding:14px 16px"><div class="f grow"><label class="sm" for="fAd">Yeni firma unvanı</label><input type="text" id="fAd"></div><div class="f"><label class="sm" for="fTur">Tür</label><select id="fTur"><option>LMT</option><option>AŞ</option><option>GRÇ</option></select></div><button class="pri" type="submit">Firma ekle</button></form></div>
+  <div class="panel"><div class="tblwrap" style="max-height:70vh"><table class="grid"><thead><tr><th>Firma</th><th>Tür</th><th class="c">KDV-1</th><th>Durum</th></tr></thead><tbody>${tr||'<tr><td colspan="4" class="empty">Firma yok.</td></tr>'}</tbody></table></div></div></div>`}
+async function excel(){if(!window.XLSX){toast('Excel kütüphanesi yüklenemedi');return}
+  const aoa=[['Firma','Dönem','Hazırlayan','Durum','Seviye','Kategori','Bulgu','Yapılacak','Tutar','Düzeltildi']];
+  for(const [id,f] of kFirmalar()){const k=kDoc(id);if(!k)continue;const du=DUR[durum(k)][0];const b=k.bulgular||[];if(!b.length)aoa.push([f.ad,S.donem,k.hazirlayan||'',du,'','','','','','']);for(const x of b)aoa.push([f.ad,S.donem,k.hazirlayan||'',du,x.seviye==='kirmizi'?'Kırmızı':'Sarı',x.kategori||'',x.aciklama||'',x.oneri||'',x.tutar||'',x.duzeltildi?'Evet':'Hayır'])}
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:45},{wch:9},{wch:16},{wch:16},{wch:9},{wch:22},{wch:60},{wch:40},{wch:14},{wch:10}];XLSX.utils.book_append_sheet(wb,ws,'KDV-1 Bulgular');
+  if(!S.dl){toast('Bu görünümde dosya indirilemiyor');return}
+  try{await S.dl.save({filename:`KDV1_Kontrol_${kKey()}.xlsx`,data:XLSX.write(wb,{bookType:'xlsx',type:'array'})});toast('İndirildi')}catch(e){if(e.code!=='declined')toast('İndirilemedi')}}
+
+document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+  if(d.tab){S.tab=d.tab;render();return}
+  if(d.f){S.f=d.f;render();return}
+  if(d.sec!=null){S.sec=d.sec||null;render();if(S.sec)window.scrollTo({top:0,behavior:'smooth'});return}
+  if(d.onay){const k=kDoc(S.sec)||{};const on=k.durum!=='onay';if(on&&!k.kontrolTarihi){toast('Kontrol yapılmadan onay verilemez');return}if(on&&!(k.paket&&k.paket.sonraki==='var')){toast('Sonraki ay GİB sorgusu onaylanmadan şef onayı verilemez. Dosya paketinden onaylayıp kontrolü yeniden çalıştırın.');return}await kSet(S.sec,{durum:on?'onay':'',onayTarihi:on?today():''});toast(on?'Onaylandı':'Onay geri alındı');render();return}
+  if(d.temiz){const kk=kDoc(S.sec)||{};if(!kk.tablo||!kk.paket){toast('Önce dosya paketini yükleyip kontrolü çalıştırın');return}await kSet(S.sec,{kontrolTarihi:today()});toast('Kontrol edildi olarak işlendi');render();return}
+  if(d.sil!=null){const b=[...(kDoc(S.sec)?.bulgular||[])];b.splice(+d.sil,1);await kSet(S.sec,{bulgular:b});toast('Bulgu silindi');render();return}
+  if(d.xl){excel();return}});
+document.addEventListener('change',async e=>{const t=e.target;const d=t.dataset;
+  if(t.id==='donem'){if(t.value){S.donem=t.value.replace('-','/');S.sec=null;render()}return}
+  if(d.duz!=null){const b=[...(kDoc(S.sec)?.bulgular||[])];const i=+d.duz;b[i]={...b[i],duzeltildi:t.checked,duzTarih:t.checked?today():''};await kSet(S.sec,{bulgular:b});render();return}
+  if(t.id==='haz'){await kSet(S.sec,{hazirlayan:t.value.trim()});toast('Kaydedildi');render();return}
+  if(d.kay){const kay={...(kDoc(S.sec)?.kaynaklar||{}),[d.kay]:t.checked};await kSet(S.sec,{kaynaklar:kay});render();return}
+  if(d.kdv){await fSet(d.kdv,{kdv1:t.checked});toast('Kaydedildi');return}
+  if(d.dur){await fSet(d.dur,{durum:t.value});toast('Kaydedildi');return}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;const p=e.target.selectionStart;render();const q=$('#q');if(q){q.focus();q.setSelectionRange(p,p)}}});
+document.addEventListener('submit',async e=>{e.preventDefault();const f=e.target;
+  if(f.id==='bForm'){const a=$('#acik').value.trim();if(!a){toast('Bulguyu yazın');return}
+    const b=[...(kDoc(S.sec)?.bulgular||[]),{id:'b'+Date.now().toString(36),seviye:$('#sev').value,kategori:$('#kat').value,aciklama:a,tutar:r2(parseTL($('#tutar').value)),duzeltildi:false,tarih:today(),kaynak:'el'}];
+    await kSet(S.sec,{bulgular:b,kontrolTarihi:today()});toast('Bulgu eklendi');render();return}
+  if(f.id==='fForm'){const ad=$('#fAd').value.trim();if(!ad)return;const tur=$('#fTur').value;const id='f'+Date.now().toString(36);await fSet(id,{ad,tur,durum:'Aktif',kdv1:tur!=='GRÇ',sira:1000+Object.keys(S.firmalar).length});toast('Firma eklendi');render()}});
+
+// ---------- otomatik kontrol: dosya okuma
+// ---------- otomatik kontrol: dosya okuma ve karşılaştırma (saf fonksiyonlar)
+const TUR=[['beyan','KDV-1 beyannamesi (PDF)'],['mizan','Mizan'],['muavin','Muavin (191 / 391)'],['defter','İşletme defteri / Defter-Beyan (gelir-gider)'],['gib','KDV ayrım raporu / GİB listesi (alış+satış)'],['gib_alis','GİB alış listesi (e-fatura / e-arşiv)'],['gib_satis','GİB satış listesi'],['esmm','e-SMM listesi'],['pusula','Gider pusulası / satış iadesi dökümü'],['z','Z raporu (fotoğraf)'],['diger','Kullanılmayacak']];
+const OZK=['hesaplanan','indirimler','devredenOnceki','odenecek','sonrakiDevreden','krediKarti'];
+const has=v=>typeof v==='number'&&isFinite(v);
+const num=v=>{if(v==null||v==='')return 0;if(typeof v==='number')return v;let s=String(v).trim().replace(/\s|TL|₺/gi,'');if(!s)return 0;let neg=false;if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1)}if(s.endsWith('-')){neg=true;s=s.slice(0,-1)}
+  if(s.includes(',')&&s.includes('.')){if(s.lastIndexOf(',')>s.lastIndexOf('.'))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'')}else if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if((s.match(/\./g)||[]).length>1)s=s.replace(/\./g,'');
+  const n=parseFloat(s);return isNaN(n)?0:(neg?-n:n)};
+const hn=c=>norm(c).replace(/\s+/g,' ').trim();
+const bno=s=>{let x=String(s??'').toUpperCase().replace(/\s/g,'');if(/^\d+$/.test(x))x=x.replace(/^0+/,'');return x};
+const ORAN=x=>{const s=String(x);const m=s.match(/%\s*(\d{1,2})(?!\d)|(\d{1,2})\s*['’]?\s*(?:luk|lik|lık|lük)\b/i);if(m)return String(+(m[1]||m[2]));const b=s.trim().match(/^0?(1|8|10|18|20)\s+\S/);return b?b[1]:null};
+function hdrBul(rows){let best=0,bs=-1;for(let i=0;i<Math.min(15,rows.length);i++){const sc=(rows[i]||[]).filter(c=>typeof c==='string'&&/[a-zçğıöşü]/i.test(c)&&c.length<60).length;if(sc>bs){bs=sc;best=i}}return best}
+function faturaKolon(h){const m={kR:{},mR:{},tev:[],iptal:[]};
+  (h||[]).map(hn).forEach((x,i)=>{if(!x)return;const r=ORAN(x);
+    if(/^tevkifat \d+$/.test(x)){m.tev.push(i);return}
+    if(/tevkifat orani|tevkifat kodu/.test(x)){m.tevOran=i;return}
+    if(/tevkif/.test(x))return;
+    if(/matrah/.test(x)){if(/toplam/.test(x))m.mTop=i;else if(r&&!/ozel/.test(x))m.mR[r]=i;return}
+    if(/^kdv orani$/.test(x)){m.oranCol=i;return}
+    if(/^tutar$/.test(x)&&m.tutar==null){m.tutar=i;return}
+    if(/kdv/.test(x)&&!/orani|haric|dahil/.test(x)){if(r)m.kR[r]=i;else if(m.kTop==null)m.kTop=i;return}
+    if(m.no==null&&/fatura no|fatura numarasi|belge no|belge numarasi|evrak no/.test(x))m.no=i;
+    if(m.ettn==null&&/ettn|uuid/.test(x))m.ettn=i;
+    if(m.yon==null&&/(^| )yon/.test(x))m.yon=i;
+    if(m.tarih==null&&/tarih/.test(x)&&!/iptal|vade|kayit|onay/.test(x))m.tarih=i;
+    if(/iptal|(^| )red( |$)/.test(x))m.iptal.push(i);
+    if(m.kanal==null&&/^(tur|fatura turu|belge turu|fatura senaryosu)$/.test(x))m.kanal=i;
+    if(m.tip==null&&/^(tip|tipi|fatura tipi)$/.test(x))m.tip=i;
+    if(m.gon==null&&/^gonderici( unvan.*)?$|^satici/.test(x))m.gon=i;
+    if(/vkn|tckn/.test(x)){if(/gonderici|satici/.test(x))m.gonV=i;else if(/alici/.test(x))m.aliV=i;else if(m.vkn==null)m.vkn=i}
+    if(m.ali==null&&/^alici( unvan.*)?$/.test(x))m.ali=i;
+    if(m.acik==null&&/aciklama|unvan/.test(x))m.acik=i});
+  return m}
+function hazirla(t){const n=norm(t.ad+' '+t.sayfa);t.hdr=hdrBul(t.rows);const hs=(t.rows[t.hdr]||[]).map(hn);
+  const ilk=norm(t.rows.slice(0,6).map(r=>String(r[0]??'')).join(' '));
+  if(/muavin/.test(n+' '+ilk)||(hs.includes('borc')&&hs.some(x=>/evrak no/.test(x))))t.tur='muavin';
+  else if(hs.some(x=>/hesap kodu/.test(x))&&hs.includes('borc'))t.tur='mizan';
+  else{const f=faturaKolon(t.rows[t.hdr]);
+    const vmS=t.rows.slice(0,15).some(r=>r.filter(c=>hn(c)==='vergi matrahi').length>=2);
+    if(/pusula/.test(n)||vmS)t.tur='pusula';
+    else if(/defter|isletme|gelir|gider|hasilat|dbs/.test(n+' '+ilk)&&(f.kTop!=null||Object.keys(f.kR).length))t.tur='defter';
+    else if((f.no!=null||f.ettn!=null)&&(f.kTop!=null||Object.keys(f.kR).length)){
+      const kan=f.kanal!=null?t.rows.slice(t.hdr+1,t.hdr+200).map(r=>hn(r[f.kanal])).filter(Boolean):[];
+      t.tur=f.yon!=null?'gib':(kan.length&&kan.every(v=>/smm/.test(v))||/smm/.test(n))?'esmm':/giden|satis/.test(n)&&!/alis/.test(n)?'gib_satis':(()=>{const vi=(t.rows[t.hdr]||[]).map(hn).findIndex(x=>/vkn|tckn/.test(x));if(vi<0)return 'gib_alis';const v=t.rows.slice(t.hdr+1,t.hdr+300).map(r=>String(r[vi]??'').replace(/\D/g,'')).filter(Boolean);return v.length&&v.filter(x=>/^1{10,11}$/.test(x)).length/v.length>=0.3?'gib_satis':'gib_alis'})()}
+    else t.tur='diger'}
+  t.kaynak='otomatik';return t}
+function gerekli(t){if(t.tur==='mizan'){const hs=(t.rows[t.hdr]||[]).map(hn);return [!hs.some(x=>/hesap kodu/.test(x))&&'hesap kodu',!hs.includes('borc')&&'borç'].filter(Boolean)}
+  if(t.tur==='muavin')return muavinOku(t).length?[]:['evrak no / borç / alacak'];
+  if(t.tur==='pusula')return pusulaOku(t).length?[]:['vergi matrahı / KDV sütunları'];
+  if(t.tur==='defter'){const d=defterOku(t);return d.length?[]:['KDV / gelir-gider ayrımı']}
+  if(/^(gib|gib_alis|gib_satis|esmm)$/.test(t.tur)){const f=faturaKolon(t.rows[t.hdr]);return [f.no==null&&f.ettn==null&&'fatura no',f.kTop==null&&!Object.keys(f.kR).length&&'KDV',t.tur==='gib'&&f.yon==null&&'alış/satış'].filter(Boolean)}
+  return []}
+const veriSatir=t=>t.rows.slice((t.hdr||0)+1).filter(r=>r&&r.some(c=>c!==''&&c!=null)).filter(r=>!/genel toplam|nakli yekun|bu rapor/.test(norm(r.join(' ')))).filter(r=>!/(^|\s)(genel )?toplam|nakli yekun/.test(norm(r.slice(0,4).join(' '))));
+function mizanOku(t){const hs=(t.rows[t.hdr]||[]).map(hn);const ix=f=>hs.findIndex(f);
+  const k=ix(x=>/hesap kodu|^kod$/.test(x)),ad=ix(x=>/hesap adi/.test(x)),b=ix(x=>x==='borc'),a=ix(x=>x==='alacak'),bb=ix(x=>/borc bakiye/.test(x)),ab=ix(x=>/alacak bakiye/.test(x));
+  if(k<0)return [];
+  return veriSatir(t).map(r=>({kod:String(r[k]??'').trim(),ad:String(ad>=0?r[ad]:'').trim(),b:num(r[b]),a:num(r[a]),bb:bb>=0?num(r[bb]):Math.max(0,num(r[b])-num(r[a])),ab:ab>=0?num(r[ab]):Math.max(0,num(r[a])-num(r[b]))})).filter(x=>/^\d/.test(x.kod))}
+function muavinOku(t){const out=[];let acc=null,m=null;
+  for(const r of t.rows){const c0=String(r[0]??'').trim();const am=c0.match(/^(\d{3}(?:[.\-]\d+)*)\s+\S/);
+    if(am&&!r.slice(1,7).some(c=>typeof c==='number')){acc=am[1];continue}
+    const hs=r.map(hn);const noI=hs.findIndex(x=>/evrak no|belge no|fatura no/.test(x));
+    if(hs.includes('borc')&&(noI>=0||hs.some(x=>/aciklama/.test(x)))){m={no:noI,b:hs.indexOf('borc'),a:hs.indexOf('alacak'),kod:hs.findIndex(x=>/hesap kodu/.test(x)),ac:hs.findIndex(x=>/aciklama/.test(x))};continue}
+    if(!m)continue;const kod=m.kod>=0?String(r[m.kod]??'').trim():acc;const acik_=m.ac>=0?String(r[m.ac]??'').trim():'';let ham_=m.no>=0?String(r[m.no]??'').trim():'';if(!ham_){const q=acik_.match(/^\d{1,2}[./]\d{1,2}[./]\d{4}-([^-\s]+)-/);if(q)ham_=q[1]}const no=bno(ham_);const b=num(r[m.b]),a=num(r[m.a]);
+    if(kod&&!no&&(b||a)&&/kdv/.test(norm(acik_))&&/tahakkuk|mahsup|virman|kapan|devir/.test(norm(acik_))){out.push({acc:kod,no:'',kapanis:true,b,a,acik:acik_});continue}
+    if(!kod||!no||(!b&&!a)||/nakli yekun|^\s*(ara |genel )?toplam(\s|:|$)/.test(norm(r.slice(0,4).join(' '))))continue;
+    out.push({acc:kod,no,ham:ham_,b,a,acik:acik_})}
+  return out}
+function pusulaOku(t){const R_=t.rows;const h=R_.findIndex(r=>r.some(c=>hn(c)==='vergi matrahi'));if(h<0)return [];
+  const bl=[];R_[h].forEach((c,i)=>{if(hn(c)!=='vergi matrahi')return;const ust=[h-1,h-2].map(j=>j>=0?R_[j]:[]);let o=null;for(const u of ust){for(let q=i;q>=Math.max(0,i-2)&&o==null;q--){const v=u[q];if(v!==''&&v!=null){const nv=num(v);o=(nv>0&&nv<=30&&!/toplam/.test(hn(v)))?String(nv):'T'}}if(o)break}
+    const ki=R_[h].findIndex((c,j)=>j>i&&hn(c)==='kdv');if(o&&o!=='T'&&ki>i)bl.push({o,mi:i,ki})});
+  const out=[];for(const r of R_.slice(h+1)){if(!r||/toplam/.test(norm(r.join(' '))))continue;const k={},m={};for(const b of bl){const kv=Math.abs(num(r[b.ki])),mv=Math.abs(num(r[b.mi]));if(kv)k[b.o]=r2(kv);if(mv)m[b.o]=r2(mv)}
+    const kdv=r2(Object.values(k).reduce((a,v)=>a+v,0));if(!kdv)continue;const cs=r.map(c=>String(c??'').trim());
+    const orig=cs.find(c=>/^[A-Z0-9]{3}20\d{11}$/.test(c))||'';const seri=cs.slice(1,5).find(c=>/^[A-Za-z][A-Za-z0-9]{0,2}$/.test(c))||'';
+    const pno=cs.slice(2,9).find(c=>/^\d{1,9}$/.test(c))||'';const ad=cs.slice(0,4).find(c=>c.length>3&&/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(c)&&!/^[A-Z0-9]{3}20\d{11}$/.test(c))||'';
+    out.push({tarih:tarihOku(r[0]),ad,seri,pno,orig,k,m,kdv})}
+  return out}
+function defterOku(t){const f=faturaKolon(t.rows[t.hdr]);const hs=(t.rows[t.hdr]||[]).map(hn);
+  const oranI=hs.findIndex(x=>/kdv orani|^oran$|^oran %|kdv %$/.test(x));
+  let mI=f.mTop;if(mI==null){const i=hs.findIndex(x=>/matrah|kdv haric|^tutar$|^tutari$|^net tutar|gider tutar|gelir tutar/.test(x)&&!/toplam|tevkif|ozel|stopaj/.test(x));if(i>=0)mI=i}
+  const seriI=hs.findIndex(x=>/belge seri/.test(x)),siraI=hs.findIndex(x=>/belge sira|^sira no$/.test(x));
+  const turI=hs.findIndex(x=>/kayit turu|gelir.?gider|^islem turu$|^turu$|^tur$|^kayit tipi$/.test(x));
+  const n=norm(t.ad+' '+t.sayfa);const vy=/gider|alis|gelen/.test(n)?'alis':/gelir|hasilat|satis|giden/.test(n)?'satis':null;const out=[];
+  for(const r of veriSatir(t)){let yon=vy;if(turI>=0){const v=hn(r[turI]);yon=/gider|alis|gelen|maliyet|amortisman/.test(v)?'alis':/gelir|hasilat|satis|giden/.test(v)?'satis':yon}if(!yon)continue;
+    const k={},mm={};for(const [o,i] of Object.entries(f.kR)){const v=num(r[i]);if(v)k[o]=v}for(const [o,i] of Object.entries(f.mR)){const v=num(r[i]);if(v)mm[o]=v}
+    if(!Object.keys(k).length&&f.kTop!=null){const kd=num(r[f.kTop]);let o=oranI>=0?num(r[oranI]):0;if(o>0&&o<1)o=o*100;o=o?String(Math.round(o)):'?';if(kd)k[o]=kd;if(mI!=null&&num(r[mI]))mm[o]=num(r[mI])}
+    else if(!Object.keys(mm).length&&mI!=null&&Object.keys(k).length===1)mm[Object.keys(k)[0]]=num(r[mI]);
+    const kdv=Object.values(k).reduce((s,v)=>s+v,0);if(!kdv&&!Object.keys(mm).length)continue;
+    out.push({yon,no:bno(siraI>=0?String(seriI>=0?r[seriI]??'':'')+String(r[siraI]??''):f.no!=null?r[f.no]:f.ettn!=null?r[f.ettn]:''),k,m:mm,kdv:r2(kdv),tev:r2(f.tev.reduce((s,i)=>s+num(r[i]),0))})}
+  return out}
+function kanalBul(v,tur){const x=hn(v);if(/arsiv/.test(x))return 'e-arşiv';if(/smm/.test(x))return 'e-smm';if(/fatura/.test(x))return 'e-fatura';if(/satis|iade|tevkifat|istisna|ozel/.test(x))return 'e-fatura*';return tur==='esmm'?'e-smm':'e-fatura'}
+function tarihOku(v){if(v==null||v==='')return '';if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,7)}const s=String(v).trim();let m=s.match(/^(\d{4})[-./](\d{1,2})/);if(m)return `${m[1]}-${m[2].padStart(2,'0')}`;m=s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);if(m)return `${m[3]}-${m[2].padStart(2,'0')}`;return ''}
+function faturaOku(t){const f=faturaKolon(t.rows[t.hdr]);const out=[];
+  for(const r of veriSatir(t)){const no=bno(f.no!=null?r[f.no]:r[f.ettn]);if(!no)continue;
+    let yon=t.tur==='gib_satis'?'satis':'alis';if(f.yon!=null){const y=hn(r[f.yon]);yon=/satis|giden/.test(y)?'satis':/alis|gelen/.test(y)?'alis':null}if(!yon)continue;
+    const k={},mm={};if(f.oranCol!=null){const ro=String(Math.round(num(r[f.oranCol])));const kv=f.kTop!=null?num(r[f.kTop]):0,mv=f.tutar!=null?num(r[f.tutar]):0;if(kv)k[ro]=kv;if(mv)mm[ro]=mv}for(const [o,i] of Object.entries(f.kR)){const v=num(r[i]);if(v)k[o]=v}for(const [o,i] of Object.entries(f.mR)){const v=num(r[i]);if(v)mm[o]=v}
+    let kdv=f.kTop!=null?num(r[f.kTop]):Object.values(k).reduce((s,v)=>s+v,0);let tev=r2(f.tev.reduce((s,i)=>s+num(r[i]),0));
+    const to=f.tevOran!=null?String(r[f.tevOran]??'').match(/(\d+)\s*\/\s*(\d+)/):null;let tevOran=to?`${+to[1]}/${+to[2]}`:'';
+    if(to&&!tev&&Object.keys(mm).length){const top=r2(Object.entries(mm).reduce((s,[o,v])=>s+v*(+o)/100,0));if(top>kdv+0.01){tev=r2(top-kdv);for(const [o,v] of Object.entries(mm))k[o]=r2(v*(+o)/100);kdv=top}}
+    const tipV=hn(f.tip!=null?r[f.tip]:'')+' '+hn(f.kanal!=null?r[f.kanal]:'');const iade=/iade/.test(tipV),istisna=/istisna/.test(tipV),tevTip=/tevkifat/.test(tipV)&&!/tevkifatsiz/.test(tipV);
+    if(istisna&&Math.abs(kdv)<0.01){const t0=Object.values(mm).reduce((a,v)=>a+v,0);for(const o of Object.keys(mm))delete mm[o];if(t0)mm['0']=r2(t0)}
+    if(!tevOran&&tev&&kdv)tevOran=`${Math.round(tev/kdv*10)}/10`;
+    const ipt=f.iptal.some(i=>{const v=hn(r[i]);return v&&!/^(hayir|yok|0|false|-|onaylandi|basarili|gecerli)$/.test(v)});
+    out.push({yon,kanal:(()=>{const k_=kanalBul(f.kanal!=null?r[f.kanal]:'',t.tur);return k_==='e-fatura*'?'e-fatura':k_})(),kanalKesin:kanalBul(f.kanal!=null?r[f.kanal]:'',t.tur)!=='e-fatura*'&&f.kanal!=null,no,k,m:mm,iade,istisna,tevTip,vkn:String((yon==='alis'?(f.gonV??f.vkn):(f.aliV??f.vkn))!=null?r[yon==='alis'?(f.gonV??f.vkn):(f.aliV??f.vkn)]:'')
+      .replace(/\D/g,'').replace(/^0+/,''),kdv:r2(kdv),tev,tevOran,tarih:tarihOku((()=>{const v=f.tarih!=null?r[f.tarih]:'';const s_=String(v);if(/T\d\d:\d\d.*Z$/.test(s_)){const d=new Date(new Date(s_).getTime()+3*3600e3);return d.toISOString().slice(0,10)}return v})()),iptal:ipt,karsi:String(yon==='alis'?(f.gon!=null?r[f.gon]:f.acik!=null?r[f.acik]:''):(f.ali!=null?r[f.ali]:f.acik!=null?r[f.acik]:'')).trim(),dosya:t.ad})}
+  if(f.oranCol!=null){const g=new Map();for(const x of out){const key=x.yon+'|'+x.no+'|'+x.vkn;const e=g.get(key);if(!e){g.set(key,x);continue}for(const [o,v] of Object.entries(x.k))e.k[o]=r2((e.k[o]||0)+v);for(const [o,v] of Object.entries(x.m))e.m[o]=r2((e.m[o]||0)+v);e.kdv=r2(e.kdv+x.kdv);e.iade=e.iade||x.iade;e.istisna=e.istisna&&x.istisna;e.tevTip=e.tevTip||x.tevTip}return [...g.values()]}
+  return out}
+function beyanOku(text){const L=String(text||'').split('\n').map(s=>s.replace(/\s+/g,' ').trim());const P=/(-?\d{1,3}(?:\.\d{3})*,\d{2})/g;
+  const son=re=>{for(const l of L)if(re.test(norm(l))){const m=l.match(P);if(m)return num(m[m.length-1])}return null};
+  const o={hesaplanan:son(/^hesaplanan katma deger vergisi/),indirimler:son(/^indirimler toplami/),devredenOnceki:son(/^onceki donemden devreden/),odenecek:son(/^bu donemde odenmesi gereken/)??son(/^odenmesi gereken katma/),sonrakiDevreden:son(/^sonraki doneme devreden/),krediKarti:son(/kredi karti ile tahsil/),sorumlu:son(/^sorumlu sifatiyla beyan/),matrahToplam:son(/^matrah toplami/),satisIade:son(/^satistan iade edilen/),istisna:son(/^istisna kapsamina giren islemlere ait toplam/)};
+  {const i=L.findIndex(l=>/^alinan mallarin iadesi/.test(norm(l)));if(i>=0){const m=(L[i]+' '+(L[i+1]||'')).match(P);if(m&&m.length>=2){o.iadeM=num(m[0]);o.iadeK=num(m[1])}}}
+  o.matrah={};o.hkdv={};o.ikdv={};let bolum='';
+  for(const l of L){const n=norm(l);if(/matrah ve vergi bildirimi/.test(n))bolum='m';else if(/^matrah toplami/.test(n))bolum='';
+    if(/oranlara gore dagilimi/.test(n))bolum='i';else if(/ihrac kaydiyla teslim bedeli/.test(n))bolum='';
+    const s=l.match(/^(?:.*?\s)?(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/);
+    if(bolum==='m'&&s){o.matrah[s[2]]=r2((o.matrah[s[2]]||0)+num(s[1]));o.hkdv[s[2]]=r2((o.hkdv[s[2]]||0)+num(s[3]))}
+    const t=l.match(/kdv\s+(\d{1,2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/i);
+    if(bolum==='i'&&t)o.ikdv[t[1]]=r2((o.ikdv[t[1]]||0)+num(t[3]))}
+  const ay=['ocak','subat','mart','nisan','mayis','haziran','temmuz','agustos','eylul','ekim','kasim','aralik'];const yl=(L.find(l=>/\byil\b/i.test(norm(l)))||'').match(/(20\d\d)/);
+  const al=L.map(norm).find(l=>/(^| )ay (ocak|subat|mart|nisan|mayis|haziran|temmuz|agustos|eylul|ekim|kasim|aralik)/.test(l));
+  if(yl&&al){const i=ay.findIndex(a=>al.includes(' '+a)||al.endsWith(a));if(i>=0)o.donem=`${yl[1]}/${String(i+1).padStart(2,'0')}`}
+  return o}
+// --- analiz
+function hesapla(tabs,o,onceki,pdfBeyan,zData,donem){const B=[],NOT=[];const bul=(kod,seviye,kategori,aciklama,oneri,tutar)=>B.push({id:'o'+kod+B.length,kod,seviye,kategori,aciklama,oneri,tutar:r2(Math.abs(tutar||0)),duzeltildi:false,tarih:today(),kaynak:'oto'});
+  const miz=[].concat(...tabs.filter(t=>t.tur==='mizan').map(mizanOku));const muAll=[].concat(...tabs.filter(t=>t.tur==='muavin').map(muavinOku));const mu=muAll.filter(x=>!x.kapanis);
+  {const kap=muAll.filter(x=>x.kapanis&&/^(191|391)/.test(x.acc));if(kap.length){const ads=new Set();for(const m of miz){if(!/^(191|391)/.test(m.kod))continue;const ks=kap.filter(x=>x.acc===m.kod||x.acc.startsWith(m.kod+'.'));if(!ks.length)continue;const kb=ks.reduce((q,x)=>q+x.b,0),ka=ks.reduce((q,x)=>q+x.a,0);
+      if(/^1/.test(m.kod)){const nb=r2(m.bb-m.ab+ka-kb);m.bb=Math.max(nb,0);m.ab=Math.max(-nb,0)}else{const nb=r2(m.ab-m.bb+kb-ka);m.ab=Math.max(nb,0);m.bb=Math.max(-nb,0)}m.b=r2(m.b-kb);m.a=r2(m.a-ka);ks.forEach(x=>ads.add(x.acik))}
+    NOT.push(`Dönem sonu KDV kapanış/tahakkuk kaydı (${[...ads].slice(0,2).join('; ')}) 191 ve 391 hesaplarını kapatmış; kontrol bu kayıt öncesindeki bakiyelerle yapıldı.`)}
+   else if(miz.some(m=>/^191$|^391$/.test(m.kod)&&m.b>0&&Math.abs(m.b-m.a)<0.01))NOT.push('Mizanda 191/391 hesapları dönem sonunda kapatılmış görünüyor (borç = alacak). Muavin de yüklenirse kapanış kaydı ayıklanıp kontrol kapanış öncesi bakiyelerle yapılır.')}
+  let invAll=[].concat(...tabs.filter(t=>/^(gib|gib_alis|gib_satis|esmm)$/.test(t.tur)).map(faturaOku));
+  const dk=donem?String(donem).replace('/','-'):(pdfBeyan&&pdfBeyan.donem?String(pdfBeyan.donem).replace('/','-'):'');
+  let sonrakiAyBelge=null;if(dk){const [yy,mm_]=dk.split('-').map(Number);const nx=mm_===12?`${yy+1}-01`:`${yy}-${String(mm_+1).padStart(2,'0')}`;sonrakiAyBelge=invAll.filter(x=>x.tarih===nx&&x.yon==='alis').length;}
+  if(dk){const dis=invAll.filter(x=>x.tarih&&x.tarih!==dk);if(dis.length){invAll=invAll.filter(x=>!x.tarih||x.tarih===dk);const by={};for(const x of dis)by[x.tarih]=(by[x.tarih]||[]).concat(x);
+    NOT.push(`Dönem dışı ${dis.length} GİB belgesi kontrole alınmadı: ${Object.entries(by).map(([a,xs])=>`${a} (${xs.length} belge, KDV ${tl(xs.reduce((s,x)=>s+x.kdv,0))}${xs.length<=4?': '+xs.map(x=>`${x.no} ${tl(x.kdv)}`).join(', '):''})`).join('; ')}. Bunlar ait oldukları ayın kontrolünde değerlendirilecek.`)}}
+  let inv=[],al=[],sa=[],alIade=[],saIade=[],ipt=new Set();const yonsuz=new Set(tabs.filter(t=>/^(gib_alis|gib_satis)$/.test(t.tur)).map(t=>t.ad));
+  const ayir=()=>{const gor=new Map(),vk=new Set();inv=[];const srt=[...invAll].sort((a,b)=>(b.vkn?1:0)-(a.vkn?1:0));for(const x of srt){const k=x.yon+'|'+x.no+'|'+(x.vkn||'');if(gor.has(k)||(!x.vkn&&vk.has(x.yon+'|'+x.no))){const e=gor.get(k)||inv.find(y=>y.yon===x.yon&&y.no===x.no);if(e&&!e.kanalKesin&&x.kanalKesin){e.kanal=x.kanal;e.kanalKesin=true}continue}gor.set(k,x);vk.add(x.yon+'|'+x.no);inv.push(x)}
+    al=inv.filter(x=>x.yon==='alis'&&!x.iptal&&!x.iade);sa=inv.filter(x=>x.yon==='satis'&&!x.iptal&&!x.iade);alIade=inv.filter(x=>x.yon==='alis'&&!x.iptal&&x.iade);saIade=inv.filter(x=>x.yon==='satis'&&!x.iptal&&x.iade);ipt=new Set(inv.filter(x=>x.iptal).map(x=>x.no))};ayir();
+  const pus=[].concat(...tabs.filter(t=>t.tur==='pusula').map(pusulaOku));
+  const def=[].concat(...tabs.filter(t=>t.tur==='defter').map(defterOku));const defterMod=!miz.length&&def.length>0;
+  if(defterMod){const agg=(arr,key)=>{const o={};for(const x of arr)for(const [r,v] of Object.entries(x[key]))o[r]=r2((o[r]||0)+v);return o};const sm=o=>r2(Object.values(o).reduce((s,v)=>s+v,0));const so=o=>Object.keys(o).sort((a,b)=>a-b);
+    const dS=def.filter(x=>x.yon==='satis'),dA=def.filter(x=>x.yon==='alis'),kA_=agg(dA,'k'),kS_=agg(dS,'k'),mS_=agg(dS,'m'),tv=r2(dA.reduce((s,x)=>s+x.tev,0));
+    const P=(kod,ad,bb,ab)=>miz.push({kod,ad,b:bb,a:ab,bb,ab});
+    if(dA.length){P('191','İNDİRİLECEK KDV (defter gider kayıtları)',r2(sm(kA_)+tv),0);for(const r of so(kA_))P('191.'+r,`İndirilecek KDV %${r}`,kA_[r],0);if(tv)P('191.T','Sorumlu sıfatıyla ödenen KDV (tevkifat)',tv,0);
+}else NOT.push('Defter gider kayıtları yüklenmedi; indirilecek KDV defterle karşılaştırılamadı.');
+    if(dS.length){P('391','HESAPLANAN KDV (defter gelir kayıtları)',0,sm(kS_));for(const r of so(kS_))P('391.'+r,`Hesaplanan KDV %${r}`,0,kS_[r]);
+    P('600','HASILAT (defter gelir kayıtları)',0,sm(mS_));for(const r of so(mS_))P('600.'+r,`Hasılat %${r}`,0,mS_[r])}else NOT.push('Defter gelir kayıtları yüklenmedi; hesaplanan KDV ve hasılat defterle karşılaştırılamadı.')}
+  const has_={miz:miz.length>0,mu:mu.length>0,gA:inv.some(x=>x.yon==='alis'),gS:inv.some(x=>x.yon==='satis')};
+  const pdf=!!pdfBeyan;const bey=pdfBeyan||{};
+  if(!has(o.hesaplanan))bul('beyan','sari','Diğer','Beyanname tutarları yok; beyan karşılaştırması yapılamadı.','Beyanname PDF\'ini yükleyin veya tutarları elle yazın.',0);
+  if(!has_.miz)bul('mizan','sari','Diğer','Mizan veya işletme defteri kayıtları yüklenmedi; kayıt bazında kontrol yapılamadı.','Bilanço firmasında mizanı, şahıs firmasında Defter-Beyan gelir ve gider kayıtlarını Excel olarak yükleyin.',0);
+  // muavin kayıt haritaları
+  const kA=new Map(),kS=new Map(),mukk=new Map();
+  if(!mu.length&&def.length)for(const x of def){if(!x.no)continue;if(x.yon==='alis')kA.set(x.no,r2((kA.get(x.no)||0)+x.kdv+x.tev));else kS.set(x.no,r2((kS.get(x.no)||0)+x.kdv))}
+  const iadeAcc=new Set(miz.filter(m=>/iade/.test(norm(m.ad))).map(m=>m.kod));
+  for(const x of mu){if(/^191/.test(x.acc)&&!iadeAcc.has(x.acc))kA.set(x.no,r2((kA.get(x.no)||0)+x.b-x.a));if(/^391/.test(x.acc))kS.set(x.no,r2((kS.get(x.no)||0)+x.a-x.b));const key=x.acc+'|'+x.no+'|'+x.b+'|'+x.a;mukk.set(key,(mukk.get(key)||0)+1)}
+  // alış/satış ayrımı belirsiz listelerde yönü kayıtla eşleşmeye göre düzelt
+  for(const ad of yonsuz){const xs=invAll.filter(x=>x.dosya===ad);if(!xs.length)continue;const s=xs.filter(x=>kS.has(x.no)).length,a=xs.filter(x=>kA.has(x.no)).length;const yeni=s>a?'satis':a>s?'alis':null;
+    if(yeni&&xs[0].yon!==yeni){xs.forEach(x=>x.yon=yeni);NOT.push(`${ad} listesi, belgeleri ${yeni==='satis'?'satış':'alış'} kayıtlarında bulunduğu için ${yeni==='satis'?'satış':'alış'} listesi olarak değerlendirildi.`)}}
+  ayir();has_.gA=inv.some(x=>x.yon==='alis');has_.gS=inv.some(x=>x.yon==='satis');
+  // kontrol tablosu
+  const sec=miz.filter(m=>/^(191|391|600|601|602)/.test(m.kod)||(/^360/.test(m.kod)&&/kdv/.test(norm(m.ad))&&!miz.some(o=>o!==m&&o.kod.startsWith(m.kod+'.'))));
+  const leaf=m=>!miz.some(o=>o!==m&&(o.kod.startsWith(m.kod+'.')||(o.kod.length>m.kod.length&&o.kod.startsWith(m.kod)&&!/[.\-]/.test(o.kod))));
+  const pay=(x,r)=>{const v=x.k[r]||0;return x.tev&&x.kdv?v-x.tev*(v/x.kdv):v};
+  const KOL=['e-fatura','e-smm','fis','e-arsiv','tevkifat','gider'];
+  // tevkifat analizi: muavinde aynı belgenin tevkifatsız (191.108) ve sorumlu (191.109) kısımlarını topla
+  const accAd=a=>{const m=miz.find(x=>x.kod===a);return norm(m?m.ad:'')};const sorumluHesap=a=>/(^|[^a-z])tevkif(?!atsiz)|sorumlu|kdv 2/.test(accAd(a));
+  {const sor=new Map();for(const x of mu.filter(x=>/^191/.test(x.acc)&&sorumluHesap(x.acc)))sor.set(x.no,r2((sor.get(x.no)||0)+x.b-x.a));const tv_=[];
+    for(const x of al)if(x.tevTip&&!x.tev&&sor.get(x.no)>0&&sor.get(x.no)<x.kdv){x.tev=sor.get(x.no);x.tevOran=`${Math.round(x.tev/x.kdv*10)}/10`;tv_.push(`${x.no} ${x.tevOran} (${tl(x.tev)})`)}
+    if(tv_.length)NOT.push(`Fatura listesinde tevkifat tutarı yazmayan ${tv_.length} tevkifatlı faturanın tevkif tutarı muavindeki sorumlu KDV kaydından alındı: ${tv_.join(', ')}. Oranı faturadan teyit edin.`)}
+  const tvk=new Map();for(const x of mu.filter(x=>/^191/.test(x.acc))){const e=tvk.get(x.no)||{no:x.no,karsi:x.acik||'',satici:0,tev:0};if(sorumluHesap(x.acc))e.tev=r2(e.tev+x.b-x.a);else e.satici=r2(e.satici+x.b-x.a);if(!e.karsi&&x.acik)e.karsi=x.acik;tvk.set(x.no,e)}
+  for(const x of def.filter(x=>x.yon==='alis'&&x.tev)){tvk.set(x.no,{no:x.no,karsi:'',satici:x.kdv,tev:x.tev})}
+  for(const x of al.filter(x=>x.tev))if(!tvk.has(x.no))tvk.set(x.no,{no:x.no,karsi:x.karsi,satici:0,tev:0,kayitYok:true});
+  const tevSat=[...tvk.values()].filter(e=>e.tev||e.kayitYok).map(e=>{const g=al.find(x=>x.no===e.no);const top=r2(e.satici+e.tev);const o10=top?e.tev/top*10:0;const yd=!g&&!e.satici&&e.tev>0;
+    const s={no:e.no,karsi:e.karsi||(g&&g.karsi)||'',satici:e.satici,tev:e.tev,toplam:top,oran:top?`${Math.round(o10)}/10`:'',tur:yd?'Yurt dışı hizmet (tamamı sorumlu)':'Yurtiçi kısmi tevkifat',gibKdv:g?g.kdv:null,gibTev:g?g.tev:null,gibOran:g?g.tevOran:'',durum:''};
+    const d=[];if(e.kayitYok)d.push('kayıtta yok');if(top&&Math.abs(o10-Math.round(o10))>0.05)d.push('standart dışı oran');if(g){if(Math.abs(g.kdv-top)>=1)d.push(`toplam KDV GİB'de ${tl(g.kdv)}`);if(Math.abs(g.tev-e.tev)>=1)d.push(`tevkifat GİB'de ${tl(g.tev)}`);if(g.tevOran&&s.oran&&g.tevOran!==s.oran)d.push(`oran GİB'de ${g.tevOran}`)}
+    s.durum=d.length?d.join('; '):g?'GİB ile tutarlı':yd?'GİB listesinde yok (yurt dışı)':'GİB listesinde yok';return s});
+  const tevGib=r2(tevSat.filter(s=>s.gibTev!=null).reduce((a,s)=>a+s.gibTev,0)),tevYd=r2(tevSat.filter(s=>s.tur.startsWith('Yurt dışı')).reduce((a,s)=>a+s.tev,0));
+  for(const s of tevSat.filter(s=>/kayıtta yok|toplam KDV|tevkifat GİB|oran GİB/.test(s.durum)))bul('tev'+s.no,'kirmizi','Tevkifat / KDV-2',`${s.no} (${s.karsi||'—'}): ${s.durum}. Kayıtta toplam KDV ${tl(s.toplam)}, tevkif ${tl(s.tev)} (${s.oran}).`,'Faturadaki tevkifat oranına göre 191.108 / 191.109 ve KDV-2 kaydını düzeltin.',s.tev);
+  for(const s of tevSat.filter(s=>/standart dışı/.test(s.durum)))bul('tevo'+s.no,'sari','Tevkifat / KDV-2',`${s.no} (${s.karsi||'—'}): tevkifat oranı ${(s.tev/s.toplam*10).toFixed(2).replace('.',',')}/10, standart bir oran değil.`,'Tevkif edilen tutarı faturadaki oranla yeniden hesaplayın.',s.tev);
+  // Z raporu: oranlara göre KDV ve matrah
+  const zK={},zM={};const zT=has(o.zTop)?o.zTop:0,zV=has(o.zKdv)?o.zKdv:0;
+  if(zData&&zData.oranlar&&zData.oranlar.length){for(const x of zData.oranlar){const r=String(Math.round(num(x.oran)));if(num(x.kdv))zK[r]=r2((zK[r]||0)+num(x.kdv));if(num(x.matrah))zM[r]=r2((zM[r]||0)+num(x.matrah))}}
+  else if(zT&&zV){const mt=r2(zT-zV);const oran=mt?zV/mt*100:0;const r=['1','10','20','8','18'].find(x=>Math.abs(oran-+x)<0.6)||'?';zK[r]=zV;zM[r]=mt}
+  const zVar=Object.keys(zK).length>0;const zHesap=sec.some(m=>/^391/.test(m.kod)&&/z rapor/.test(norm(m.ad))),zSat=sec.some(m=>/^60/.test(m.kod)&&/z rapor/.test(norm(m.ad)));
+  const zTop_=o=>r2(Object.values(o).reduce((s,v)=>s+v,0));
+  const tablo=sec.map(m=>{const n=norm(m.ad),lf=leaf(m),r=ORAN(m.ad),src={};const bakiye=r2(/^1/.test(m.kod)?m.bb-m.ab:m.ab-m.bb);
+    if(lf){const add=(k,v)=>{if(v)src[k]=r2((src[k]||0)+v)};const kn=x=>x.kanal==='e-arşiv'?'e-arsiv':x.kanal;
+      if(/^191/.test(m.kod)){if(/(^|[^a-z])tevkif(?!atsiz)|sorumlu|kdv 2/.test(n))add('tevkifat',tevGib+tevYd);else{for(const x of (/iade/.test(n)?alIade:al))add(kn(x),r?pay(x,r):x.kdv-x.tev);if(/iade/.test(n))for(const x of pus)add('gider',r?(x.k[r]||0):x.kdv)}}
+      else if(/^391/.test(m.kod)){if(/z rapor/.test(n))add('fis',r?(zK[r]||0):zTop_(zK));else if(/iade/.test(n)){for(const x of saIade)add(kn(x),r?(x.k[r]||0):x.kdv)}else{for(const x of sa)add(kn(x),r?(x.k[r]||0):x.kdv);if(!zHesap)add('fis',r?(zK[r]||0):zTop_(zK))}}
+      else if(/^60[0]/.test(m.kod)&&(r||/z rapor/.test(n)||!sec.some(q=>/^600/.test(q.kod)&&ORAN(q.ad)))){if(/z rapor/.test(n))add('fis',r?(zM[r]||0):zTop_(zM));else{for(const x of sa)add(kn(x),r?(x.m[r]||0):Object.values(x.m).reduce((s,v)=>s+v,0));if(!zSat)add('fis',r?(zM[r]||0):zTop_(zM))}}
+      else if(/^60[12]/.test(m.kod)&&(r==='0'||/istisna/.test(n))){for(const x of sa)add(kn(x),x.m['0']||0)}
+      else if(/^360/.test(m.kod))add('tevkifat',tevGib+tevYd)}
+    const toplam=r2(KOL.reduce((s,k)=>s+(src[k]||0),0));return{kod:m.kod,ad:m.ad,b:m.b,a:m.a,bb:m.bb,ab:m.ab,leaf:lf,src,toplam:lf?toplam:null,fark:lf?r2(toplam-bakiye):null,bakiye}});
+  const kars=[];
+  const ydNo=new Set(tevSat.filter(s=>s.tur.startsWith('Yurt dışı')).map(s=>s.no));const alNo=new Set(al.map(x=>x.no));const kAy=[...kA.keys()].filter(n=>!ydNo.has(n));
+  const alKap=kAy.length?kAy.filter(n=>alNo.has(n)).length/kAy.length:1;const alEksik=kAy.length>=5&&alKap<0.5;
+  const aciklanan=new Set();const disKayit=acc=>mu.filter(x=>x.acc===acc&&!alNo.has(x.no)&&!ydNo.has(x.no)&&!aciklanan.has(x.no));
+  let sonD=[];const fisRe=/noter|yevmiye|gumruk|tapu|harc|(^|\s)nl\s.*\smk(\s|$)/;
+  for(const t of tablo){if(!t.leaf||!/^191/.test(t.kod)||/iade|(^|[^a-z])tevkif(?!atsiz)|sorumlu|kdv 2/.test(norm(t.ad))||!KOL.some(k=>t.src[k]))continue;
+    const kn_=disKayit(t.kod).filter(x=>fisRe.test(norm((x.acik||'')+' '+(x.ham||''))));if(!kn_.length)continue;const ks=r2(kn_.reduce((a,x)=>a+x.b-x.a,0));
+    t.src.fis=r2((t.src.fis||0)+ks);t.toplam=r2(t.toplam+ks);t.fark=r2(t.toplam-t.bakiye);kn_.forEach(x=>aciklanan.add(x.no));
+    NOT.push(`${t.kod}: GİB listesinde olmayan ${kn_.length} noter/gümrük belgesi (KDV ${tl(ks)}) fiş sütununa alındı: ${kn_.slice(0,8).map(x=>`${x.ham||x.no} ${tl(x.b-x.a)}`).join('; ')}${kn_.length>8?' …':''}.`)}
+  const kSy=[...kS.keys()].filter(n=>!/^\d{1,5}$/.test(n));const saNo=new Set([...sa,...saIade].map(x=>x.no));const satKap=kSy.length?kSy.filter(n=>saNo.has(n)).length/kSy.length:1;const satEksik=kSy.length>=5&&satKap<0.5;
+  if(satEksik)NOT.push(`GİB satış listesi eksik görünüyor: kayıttaki ${kSy.length} satış belgesinin yalnızca ${Math.round(satKap*100)}%'i listede var. e-Arşiv ve e-Fatura giden fatura listelerinin tamamını yükleyin; satış tarafındaki farklar bu yüzden kesin değil.`);
+  if(alEksik)NOT.push(`GİB alış listesi eksik görünüyor: kayıttaki ${kA.size} alış belgesinin yalnızca ${Math.round(alKap*100)}%'i listede var. e-Fatura ve e-Arşiv gelen fatura listelerinin tamamını yükleyin; alış tarafındaki farklar bu yüzden kesin değil.`);
+  const ors600=tablo.filter(t=>t.leaf&&/^600/.test(t.kod)&&!ORAN(t.ad)&&!KOL.some(k=>t.src[k])&&t.bakiye),ors600S=r2(ors600.reduce((q,t)=>q+t.bakiye,0));
+  const ors600F=r2(tablo.filter(t=>t.leaf&&/^600/.test(t.kod)&&ORAN(t.ad)&&KOL.some(k=>t.src[k])).reduce((q,t)=>q+t.fark,0));const ors600Ok=ors600.length&&Math.abs(ors600F-ors600S)<1;
+  for(const t of tablo){if(!t.leaf)continue;const kaynakli=KOL.some(k=>t.src[k]);
+    if(ors600Ok&&/^600/.test(t.kod)&&Math.abs(t.fark)>=5&&KOL.some(k=>t.src[k])){NOT.push(`${t.kod} ${t.ad}: GİB satış matrahı kayıttan ${tl(t.fark)} fazla; bu tutar oran yazmayan ${ors600.map(x=>`${x.kod} ${x.ad} (${tl(x.bakiye)})`).join(', ')} hesabına kaydedilen satışlarla birebir aynı. Fark yok, satışlar iki hesaba bölünmüş.`);continue}
+    if(kaynakli&&Math.abs(t.fark)>=5&&/^(391|60)/.test(t.kod)&&satEksik){NOT.push(`${t.kod}: kayıt ${tl(t.bakiye)}, listedeki satış ${tl(t.toplam)} (satış listesi eksik olduğu için karşılaştırma kesin değil).`);continue}
+    if(kaynakli&&Math.abs(t.fark)>=5&&/^191/.test(t.kod)&&alEksik)NOT.push(`${t.kod}: kayıt ${tl(t.bakiye)}, listedeki alış KDV'si ${tl(t.toplam)} (alış listesi eksik olduğu için karşılaştırma kesin değil).`);
+    else if(kaynakli&&Math.abs(t.fark)>=5&&/^191/.test(t.kod)&&t.fark>0&&!/(^|[^a-z])tevkif(?!atsiz)|sorumlu/.test(norm(t.ad)))bul('t'+t.kod,'sari','Alış / e-Fatura',`${t.kod} ${t.ad}: GİB'deki alış KDV'si ${tl(t.toplam)}, kayıtta ${tl(t.bakiye)}. ${tl(t.fark)} TL KDV henüz indirilmemiş.`,'İndirilmeyen belgeleri kontrol edin; KDV, belgenin ait olduğu takvim yılı içinde indirilebilir.',t.fark);
+    else if(kaynakli&&t.fark<=-5&&/^191/.test(t.kod)&&(()=>{const d=disKayit(t.kod);const s=r2(d.reduce((a,x)=>a+x.b-x.a,0));const ok=d.length&&Math.abs(s+t.fark)<1;if(ok){d.forEach(x=>aciklanan.add(x.no));sonD=d}return ok})())bul('t'+t.kod,'sari','Alış / e-Fatura',`${t.kod} ${t.ad}: kayıtta ${tl(-t.fark)} TL fazla; fark GİB listesinde olmayan belgelerden geliyor: ${sonD.map(x=>`${x.ham||x.no} ${x.acik?'('+x.acik.slice(0,40)+') ':''}${tl(x.b-x.a)}`).join('; ')}.`,/smm|serbest meslek/.test(norm(sonD.map(x=>x.acik).join(' ')))?'Serbest meslek makbuzları GİB fatura listesinde yer almaz: e-SMM listesini (GİB portalı, e-SMM sorgulama) de yükleyin; makbuzlar listede çıkarsa bu nokta kendiliğinden kapanır.':'Gümrük beyannamesi veya kâğıt belge ise belgenin aslını kontrol edin; değilse kaydı düzeltin.',t.fark);
+    else if(kaynakli&&Math.abs(t.fark)>=5)bul('t'+t.kod,'kirmizi',/^191/.test(t.kod)?'Alış / e-Fatura':/^60/.test(t.kod)?'Mizan–beyan farkı':'Satış / e-Arşiv',`${t.kod} ${t.ad}: kayıt bakiyesi ${tl(t.bakiye)}, kaynak toplamı ${tl(t.toplam)}. Fark ${tl(t.fark)}.`,'Hesabın muavinini kaynak listeyle fatura bazında karşılaştırın; eksik, fazla veya yanlış hesaba atılmış kaydı düzeltin.',t.fark);
+    else if(kaynakli&&Math.abs(t.fark)>=0.01)NOT.push(`${t.kod} hesabında ${tl(t.fark)} TL yuvarlama farkı var.`)}
+  if(saIade.length){const g=r2(saIade.reduce((q,x)=>q+x.kdv,0)),ti=tablo.filter(t=>t.leaf&&/^391/.test(t.kod)&&/iade/.test(norm(t.ad))),kv=r2(ti.reduce((q,t)=>q+t.bakiye,0));
+    NOT.push(`Alınan malların iadesi: GİB'de ${saIade.length} iade faturası, KDV ${tl(g)}${ti.length?`; ${ti.map(t=>t.kod).join(', ')} kaydı ${tl(kv)}${Math.abs(g-kv)<1?', tutarlı':`, fark ${tl(kv-g)}`}`:'; kayıtta iade hesabı bulunamadı, satış KDV hesabına girilmiş olabilir'}. Beyannamede "Alınan Malların İadesi" satırıyla da karşılaştırın.`)}
+  {const ay=inv.filter(x=>!x.kanalKesin&&!x.iptal&&x.kanal==='e-fatura');if(ay.length)NOT.push(`${ay.length} belgenin listesinde e-fatura / e-arşiv ayrımı yok (Luca ve GİB listeleri yalnızca SATIS, TEVKİFAT, İSTİSNA gibi türü veriyor); bu belgeler tabloda e-fatura sütununda gösterildi. Ayrım için Rahat Aktarım gelen/giden listesini de yükleyin; aynı belgeler oradan eşleşip doğru sütuna geçer.`)}
+  const kaynaksiz=tablo.filter(t=>t.leaf&&t.bakiye&&!KOL.some(k=>t.src[k]));if(kaynaksiz.length)NOT.push('Kaynakla karşılaştırılamayan hesaplar: '+kaynaksiz.map(t=>`${t.kod} ${t.ad} (${tl(t.bakiye)})`).join('; ')+'. Bunları belgeyle elle kontrol edin.');
+  // beyan karşılaştırması
+  const sumT=(re,f)=>r2(tablo.filter(t=>t.leaf&&re.test(t.kod)).reduce((s,t)=>s+f(t),0));
+  const mizR=(re,r,f)=>{const ts=tablo.filter(t=>t.leaf&&re.test(t.kod)&&ORAN(t.ad)===r&&!/(^|[^a-z])tevkif(?!atsiz)|sorumlu|iade/.test(norm(t.ad)));return ts.length?r2(ts.reduce((s,t)=>s+f(t),0)):null};
+  const gibR=(arr,key,r)=>r2(arr.reduce((s,x)=>s+(x[key][r]||0),0));
+  const satir=(ad,bv,mv,gv,kat)=>{let fark=has(bv)&&has(mv)?r2(bv-mv):null;let d=fark==null?(has(bv)?'Karşılaştırılamadı':''):Math.abs(fark)<0.01?'Tutarlı':Math.abs(fark)<5?'Yuvarlama farkı':'Fark var';
+    if(fark==null&&has(bv)&&has(gv)){const gf=r2(bv-gv);fark=gf;d=Math.abs(gf)<5?'Kayıt yok · GİB ile tutarlı':'Kayıt yok · GİB ile fark var';
+      if(Math.abs(gf)>=5&&/toplam/.test(ad))bul('g'+kars.length,'sari',kat,`${ad}: beyanda ${tl(bv)}, GİB kaynaklarında ${tl(gv)}. Fark ${tl(gf)}. Mizan veya defter yüklenmediği için hangisinin doğru olduğu belirlenemedi.`,'Mizanı veya defter kayıtlarını yükleyip kontrolü yeniden çalıştırın; GİB listelerinin türünün (alış / satış) doğru seçildiğini kontrol edin.',gf)}
+    kars.push({ad,beyan:has(bv)?bv:null,mizan:has(mv)?mv:null,gib:has(gv)?gv:null,fark,durum:d});
+    if(d==='Fark var')bul('b'+kars.length,'kirmizi',kat,`${ad}: beyanda ${tl(bv)}, kayıtta ${tl(mv)}. Fark ${tl(fark)}.`,'Beyanname ile kaydı karşılaştırıp hatalı olanı düzeltin.',fark)};
+  const rates=[...new Set([...Object.keys(bey.matrah||{}),...Object.keys(bey.hkdv||{})])].sort((a,b)=>a-b);
+  const oransiz=tablo.filter(t=>t.leaf&&/^600/.test(t.kod)&&!ORAN(t.ad)&&t.bakiye);const oSum=r2(oransiz.reduce((a,t)=>a+t.bakiye,0));
+  const satirM=(r)=>{const bv=bey.matrah[r],mv=mizR(/^600/,r,t=>t.bakiye);if(oransiz.length&&has(bv)&&has(mv)&&Math.abs(bv-mv-oSum)<1){kars.push({ad:`Matrah %${r}`,beyan:bv,mizan:r2(mv+oSum),gib:r2(gibR(sa,'m',r)+(zM[r]||0)),fark:r2(bv-mv-oSum),durum:'Tutarlı (oranı yazmayan hesap dahil)'});NOT.push(`Matrah %${r}: hesap adında oran yazmayan ${oransiz.map(t=>`${t.kod} ${t.ad} (${tl(t.bakiye)})`).join(', ')} bu orana dahil edildi; beyanla tutarlı. Hesap adına oranı yazmanız sonraki kontrolleri netleştirir.`);mOk[r]=true;return}
+    satir(`Matrah %${r}`,bv,mv,r2(gibR(sa,'m',r)+(zM[r]||0)),'Mizan–beyan farkı');const k=kars[kars.length-1];if(k&&k.durum==='Tutarlı')mOk[r]=true};const mOk={};
+  for(const r of rates)satirM(r);
+  if(false)for(const r of rates)satir(`Matrah %${r}`,bey.matrah[r],mizR(/^600/,r,t=>t.bakiye),r2(gibR(sa,'m',r)+(zM[r]||0)),'Mizan–beyan farkı');
+  for(const r of rates){const bv=bey.hkdv[r],mv=mizR(/^391/,r,t=>t.bakiye);if(mOk[r]&&has(bv)&&has(mv)&&Math.abs(bv-mv)>=5&&Math.abs(bv-mv)<=Math.max(5,bv*0.0005)){kars.push({ad:`Hesaplanan KDV %${r}`,beyan:bv,mizan:mv,gib:r2(gibR(sa,'k',r)+(zK[r]||0)),fark:r2(bv-mv),durum:'Yuvarlama farkı'});NOT.push(`Hesaplanan KDV %${r}: beyan ${tl(bv)}, kayıt ${tl(mv)}; ${tl(bv-mv)} TL fark matrah tutarlı olduğu için yuvarlamadan geliyor (beyanname KDV'yi matrah × oran ile, kayıt fatura bazında hesaplıyor).`);continue}
+    satir(`Hesaplanan KDV %${r}`,bv,mv,r2(gibR(sa,'k',r)+(zK[r]||0)),'Mizan–beyan farkı')}
+  const m391=has_.miz&&tablo.some(t=>/^391/.test(t.kod))?sumT(/^391/,t=>t.bakiye):null,m191=has_.miz&&tablo.some(t=>/^191/.test(t.kod))?sumT(/^191/,t=>t.bakiye):null;
+  {const hy=kars.filter(k=>/^Hesaplanan KDV %/.test(k.ad));const yuv=hy.length&&hy.every(k=>/Tutarlı|Yuvarlama/.test(k.durum));if(yuv&&has(o.hesaplanan)&&m391!=null&&Math.abs(o.hesaplanan-m391-hy.reduce((a,k)=>a+(k.fark||0),0))<1){kars.push({ad:'Hesaplanan KDV toplam',beyan:o.hesaplanan,mizan:m391,gib:has_.gS||zVar?r2(sa.reduce((s,x)=>s+x.kdv,0)+zTop_(zK)):null,fark:r2(o.hesaplanan-m391),durum:Math.abs(o.hesaplanan-m391)<0.01?'Tutarlı':'Yuvarlama farkı'})}else satir('Hesaplanan KDV toplam',o.hesaplanan,m391,has_.gS||zVar?r2(sa.reduce((s,x)=>s+x.kdv,0)+zTop_(zK)):null,'Mizan–beyan farkı')}
+  for(const r of Object.keys(bey.ikdv||{}).sort((a,b)=>a-b))satir(`İndirilecek KDV %${r}`,bey.ikdv[r],mizR(/^191/,r,t=>t.bakiye),r2(al.reduce((s,x)=>s+pay(x,r),0)),'Alış / e-Fatura');
+  if(has(bey.sorumlu)||al.some(x=>x.tev))satir('Sorumlu sıfatıyla ödenen KDV',has(bey.sorumlu)?bey.sorumlu:0,has_.miz?sumT(/^191/,t=>/(^|[^a-z])tevkif(?!atsiz)|sorumlu/.test(norm(t.ad))?t.bakiye:0):null,r2(al.reduce((s,x)=>s+x.tev,0)),'Tevkifat / KDV-2');
+  {const lf=re=>tablo.filter(t=>t.leaf&&re(t));const sb=a=>a.length?r2(a.reduce((q,t)=>q+t.bakiye,0)):null;
+    const i191=lf(t=>/^191/.test(t.kod)&&/iade/.test(norm(t.ad)));if(has(bey.satisIade)||i191.length)satir('Satış iadesi KDV (indirim)',has(bey.satisIade)?bey.satisIade:null,has_.miz?sb(i191):null,pus.length||alIade.length?r2(pus.reduce((q,x)=>q+x.kdv,0)+alIade.reduce((q,x)=>q+x.kdv,0)):null,'Satış iadesi');
+    const i391=lf(t=>/^391/.test(t.kod)&&/iade/.test(norm(t.ad)));if(has(bey.iadeK)||saIade.length)satir('Alınan malların iadesi KDV',has(bey.iadeK)?bey.iadeK:null,has_.miz?sb(i391):null,saIade.length?r2(saIade.reduce((q,x)=>q+x.kdv,0)):null,'Mizan–beyan farkı');
+    const ist=lf(t=>/^60[0-2]/.test(t.kod)&&(ORAN(t.ad)==='0'||/istisna/.test(norm(t.ad))));const gI=r2(sa.filter(x=>x.istisna||(!x.kdv&&x.m['0'])).reduce((q,x)=>q+(x.m['0']||0),0));
+    if(has(bey.istisna)&&(bey.istisna||ist.length||gI))satir('İstisna kapsamındaki işlemler',bey.istisna,has_.miz?sb(ist):null,gI||null,'Mizan–beyan farkı')}
+  const buDon=has(o.indirimler)?r2(o.indirimler-(o.devredenOnceki||0)):null;
+  satir('Bu dönem indirim toplamı',buDon,m191,has_.gA?r2(al.reduce((s,x)=>s+x.kdv,0)):null,'Mizan–beyan farkı');
+  const od=onceki&&onceki.ozet&&has(onceki.ozet.sonrakiDevreden)?onceki.ozet.sonrakiDevreden:null;
+  kars.push({ad:'Önceki dönemden devreden KDV',beyan:has(o.devredenOnceki)?o.devredenOnceki:null,mizan:od,gib:null,fark:od!=null&&has(o.devredenOnceki)?r2(o.devredenOnceki-od):null,durum:od==null?'Doğrulanamadı: önceki ayın kontrolü yok':Math.abs(o.devredenOnceki-od)<0.01?'Tutarlı (geçen ay)':'Fark var'});
+  if(od!=null&&has(o.devredenOnceki)&&Math.abs(o.devredenOnceki-od)>=0.01)bul('devir','kirmizi','Devreden KDV',`Beyandaki önceki dönemden devreden ${tl(o.devredenOnceki)}, geçen ayın sonraki döneme devredeni ${tl(od)}.`,'Devreden KDV\'yi geçen ayın beyannamesine göre düzeltin.',o.devredenOnceki-od);
+  if(has(o.hesaplanan)&&has(o.indirimler)){const net=r2(o.indirimler-o.hesaplanan);
+    kars.push({ad:'Sonraki döneme devreden KDV',beyan:has(o.sonrakiDevreden)?o.sonrakiDevreden:null,mizan:net>0?net:0,gib:null,fark:has(o.sonrakiDevreden)?r2(o.sonrakiDevreden-(net>0?net:0)):null,durum:!has(o.sonrakiDevreden)?'':Math.abs(o.sonrakiDevreden-(net>0?net:0))<1?'Tutarlı (indirimler − hesaplanan)':'Fark var'});
+    if(has(o.sonrakiDevreden)&&Math.abs(o.sonrakiDevreden-(net>0?net:0))>=1)bul('arit','kirmizi','Diğer',`Sonraki döneme devreden ${tl(o.sonrakiDevreden)}, indirimler − hesaplanan ${tl(net)}.`,'Beyandaki tutarları yeniden kontrol edin.',o.sonrakiDevreden-net);
+    if(net<0&&has(o.odenecek)&&Math.abs(-net-o.odenecek)>=1)bul('arit2','kirmizi','Diğer',`Ödenecek KDV ${tl(o.odenecek)}, hesaplanan − indirimler ${tl(-net)}.`,'Beyandaki tutarları yeniden kontrol edin.',-net-o.odenecek)}
+  const kk=has(o.krediKarti)?o.krediKarti:null,pos=has(o.pos)?o.pos:null;
+  kars.push({ad:'Kredi kartı ile tahsil edilen (KDV dahil) / GİB POS',beyan:kk,mizan:pos,gib:null,fark:kk!=null&&pos!=null?r2(kk-pos):null,durum:pos==null?'POS tutarı girilmedi':Math.abs(kk-pos)<1?'Tutarlı':'Fark var: açıklama gerekli'});
+  if(pos!=null&&pos>0&&!kk)bul('pos','kirmizi','POS / kredi kartı',`GİB POS toplamı ${tl(pos)}, beyanda kredi kartı satırı boş.`,'Kredi kartı satırını POS bilgilerine göre doldurun.',pos);
+  else if(pos!=null&&kk!=null&&Math.abs(kk-pos)>=1)bul('pos','sari','POS / kredi kartı',`GİB POS toplamı ${tl(pos)}, beyandaki kredi kartı tutarı ${tl(kk)}. Fark ${tl(kk-pos)}.`,'Fark avans, önceki dönem taksidi veya POS dışı tahsilattan geliyorsa not edin; değilse beyanı düzeltin.',kk-pos);
+  // fatura bazında eşleşme
+  const liste=(a,n=8)=>a.slice(0,n).join(', ')+(a.length>n?` ve ${a.length-n} belge daha`:'');
+  const esle=(gib,kay,yon)=>{if(!gib.length||!kay.size)return null;const g=new Map();for(const x of gib)g.set(x.no,r2((g.get(x.no)||0)+x.kdv-(yon==='alis'?0:0)));
+    let yok=[...g.keys()].filter(n=>!kay.has(n)&&Math.abs(g.get(n))>=1),fazla=[...kay.keys()].filter(n=>!g.has(n)&&!ipt.has(n)&&!(yon==='satis'&&/^\d{1,5}$/.test(n))&&!(yon==='alis'&&(ydNo.has(n)||aciklanan.has(n))));const fk=[...g.keys()].filter(n=>kay.has(n)&&Math.abs(kay.get(n)-g.get(n))>=1);
+    const nh=[];if(fazla.length<=30&&yok.length<=30)for(const n of [...yok]){const ad=fazla.filter(f=>Math.abs(kay.get(f)-g.get(n))<0.05);const ters=yok.filter(y=>Math.abs(g.get(y)-g.get(n))<0.05);const m=ad.length===1&&ters.length===1?ad[0]:null;if(m){nh.push(`${n} → kayıtta ${m}`);yok=yok.filter(x=>x!==n);fazla=fazla.filter(x=>x!==m)}}
+    if(nh.length)bul(yon+'num','sari',yon==='alis'?'Alış / e-Fatura':'Satış / e-Arşiv',`Belge numarası kayda yanlış yazılmış (tutar aynı) ${nh.length} belge: ${liste(nh,6)}.`,'Kayıttaki belge numarasını düzeltin.',0);
+    const A=yon==='alis'?'alış':'satış',K=yon==='alis'?'Alış / e-Fatura':'Satış / e-Arşiv',H=yon==='alis'?'191':'391';
+    if(yok.length&&!(yon==='satis'&&satEksik&&yok.length>20))bul(yon+'yok',yon==='alis'?'sari':'kirmizi',K,`GİB ${A} listesinde olup ${defterMod?'defter kayıtlarında':H+' muavininde'} olmayan ${yok.length} belge (KDV ${tl(yok.reduce((s,n)=>s+g.get(n),0))}): ${liste(yok)}.`,yon==='alis'?'Alış belgeleri kayda alınmamış; KDV\'si belgenin ait olduğu takvim yılı içinde indirilebilir. Gider ve KDV kaydını yapın.':'Satış belgeleri kayda alınmamış; satış beyan dışı kalmış olabilir. Kaydı yapın ve gerekirse düzeltme beyannamesi verin.',yok.reduce((s,n)=>s+g.get(n),0));
+    const fkA=yon==='alis'?fk.filter(n=>kay.get(n)<g.get(n)):[];if(fkA.length)bul(yon+'farkd','sari',K,`KDV'si kayda eksik alınmış ${fkA.length} belge: ${liste(fkA.map(n=>`${n} (GİB ${tl(g.get(n))}, kayıt ${tl(kay.get(n))})`),5)}.`,'Eksik KDV belgenin ait olduğu takvim yılı içinde indirilebilir; kaydı düzeltin.',fkA.reduce((s,n)=>s+g.get(n)-kay.get(n),0));
+    const fkK=fk.filter(n=>!fkA.includes(n));
+    if(fkK.length)bul(yon+'fark','kirmizi',K,`KDV tutarı GİB ile ${defterMod?'defter kayıtlarında':H+' muavininde'} farklı olan ${fkK.length} belge: ${liste(fkK.map(n=>`${n} (GİB ${tl(g.get(n))}, kayıt ${tl(kay.get(n))})`),5)}.`,'Kaydı belgedeki KDV tutarına göre düzeltin.',fkK.reduce((s,n)=>s+kay.get(n)-g.get(n),0));
+    if(fazla.length&&!(yon==='alis'&&alEksik)&&!(yon==='satis'&&satEksik))bul(yon+'fazla','sari',K,`${defterMod?'defter kayıtlarında':H+' muavininde'} olup GİB listesinde olmayan ${fazla.length} belge: ${liste(fazla)}.`,'Kâğıt fatura, fiş veya gümrük belgesi ise sorun yok. e-Fatura/e-Arşiv/e-SMM ise belge GİB\'e henüz raporlanmamış olabilir: GİB sorgusu raporlanma tarihine göre çalışır, sonraki ayın sorgusunda tekrar arayın; yine çıkmazsa belgenin GİB karşılığını düzenleyenden isteyin.',fazla.reduce((s,n)=>s+kay.get(n),0));
+    return{gib:g.size,kayit:kay.size,eslesen:[...g.keys()].filter(n=>kay.has(n)&&Math.abs(kay.get(n)-g.get(n))<1).length,yok:yok.length,fazla:fazla.length,fark:fk.length}};
+  const eA=esle(al,kA,'alis'),eS=esle([...sa,...saIade],kS,'satis');
+  const ik=[...ipt].filter(n=>kA.has(n)||kS.has(n));if(ik.length)bul('iptal','kirmizi','İptal / mükerrer',`İptal veya red edilmiş ${ik.length} belge kayıtta duruyor: ${liste(ik)}.`,'Red ve iptal edilen faturalar ve tekrar eden satırları kayıttan çıkarılmalı.',0);
+  const iadeHesap=a=>/iade/.test(accAd(a));
+  {const iad=new Map();for(const x of mu.filter(x=>/^191/.test(x.acc)&&iadeHesap(x.acc)))iad.set(x.no,r2((iad.get(x.no)||0)+x.b-x.a));
+    const satK=new Map();for(const x of mu.filter(x=>/^391/.test(x.acc)&&!iadeHesap(x.acc)))satK.set(x.no,r2((satK.get(x.no)||0)+x.a-x.b));
+    const fazlaIade=[...iad].filter(([n,v])=>satK.has(n)&&v>satK.get(n)+0.05);
+    if(fazlaIade.length)bul('iadefazla','kirmizi','Satış / e-Arşiv',`Satış iadesi KDV'si, aynı faturanın hesaplanan KDV'sinden fazla olan ${fazlaIade.length} belge: ${liste(fazlaIade.map(([n,v])=>`${n} (iade ${tl(v)}, satış ${tl(satK.get(n))})`),5)}.`,'İade kaydını faturayla karşılaştırın; mükerrer iade kaydı varsa çıkarın.',fazlaIade.reduce((a,[n,v])=>a+v-satK.get(n),0));
+    const parca=[...iad].filter(([n])=>mu.filter(x=>x.no===n&&/^191/.test(x.acc)&&iadeHesap(x.acc)).length>1).length;
+    if(iad.size)NOT.push(`Satış iadeleri: ${iad.size} belge, iade KDV'si ${tl([...iad.values()].reduce((a,v)=>a+v,0))}${parca?`; ${parca} belgede iade birden fazla satır veya parça iade olarak girilmiş, bu ay satışı bulunanlarda iade toplamı satış KDV'sini aşmıyor`:''}.`)}
+  if(pus.length){const top=r2(pus.reduce((a,x)=>a+x.kdv,0));const ser=[...new Set(pus.map(x=>x.seri+(x.pno||'')))].length;
+    const bil=pus.filter(x=>!x.orig);if(bil.length)bul('pusbil','sari','Satış iadesi',`Hangi satışa ait olduğu ve iade edenin kim olduğu yazılmayan ${bil.length} gider pusulası (KDV ${tl(bil.reduce((a,x)=>a+x.kdv,0))}): ${liste(bil.map(x=>`${x.seri}-${x.pno}${x.ad?' ('+x.ad.slice(0,25)+')':''} ${tl(x.kdv)}`),6)}.`,'İade KDV’sinin indirilebilmesi için iadenin hangi satış faturasına ait olduğu ve iade eden alıcı belgelenmeli. Belgeyle tamamlanamıyorsa bu KDV indirimden çıkarılmalı.',bil.reduce((a,x)=>a+x.kdv,0));
+    const pn=new Map();for(const x of pus){if(!x.pno)continue;const k=x.seri+'-'+x.pno;(pn.get(k)||pn.set(k,new Set()).get(k)).add(norm(x.ad))}const cift=[...pn].filter(([,v])=>v.size>1).map(([k])=>k);
+    if(cift.length)bul('puscift','sari','Satış iadesi',`Aynı numara iki farklı kişiye kullanılmış ${cift.length} gider pusulası: ${liste(cift,8)}.`,'Her iade eden kişi için ayrı numaralı pusula düzenlenmeli; numarayı düzeltip pusulaları ayırın.',0);
+    const sK=new Map();for(const x of sa)sK.set(x.no,r2((sK.get(x.no)||0)+x.kdv));const io=new Map();for(const x of pus)if(x.orig)io.set(x.orig,r2((io.get(x.orig)||0)+x.kdv));
+    const asan=[...io].filter(([n,v])=>sK.has(n)&&v>sK.get(n)+0.05);if(asan.length)bul('pusasan','kirmizi','Satış iadesi',`İade KDV’si, iade edilen satış faturasının KDV’sinden fazla olan ${asan.length} belge: ${liste(asan.map(([n,v])=>`${n} (iade ${tl(v)}, fatura ${tl(sK.get(n))})`),5)}.`,'Fazla iade KDV’si indirim konusu yapılamaz; pusulayı ve kaydı düzeltin.',asan.reduce((a,[n,v])=>a+v-sK.get(n),0));
+    const buAy=[...io.keys()].filter(n=>sK.has(n)).length,eski=io.size-buAy;
+    NOT.push(`Satış iadesi (gider pusulası): ${pus.length} satır, ${ser} pusula, iade KDV’si ${tl(top)}. İade edilen ${io.size} faturanın ${buAy} tanesi bu ayın GİB satış listesinde var ve hiçbirinde iade satışı aşmıyor${eski?`; ${eski} tanesi önceki aylara ait (o ayların satış listesiyle kontrol edilebilir)`:''}.`);
+    const bs=[...new Set(pus.map(x=>x.seri))];for(const sr of bs){const ns=[...new Set(pus.filter(x=>x.seri===sr&&x.pno).map(x=>+x.pno))].sort((a,b)=>a-b);if(ns.length<20)continue;let g=0;const gl=[];for(let i=1;i<ns.length;i++){const d=ns[i]-ns[i-1]-1;if(d>0&&d<5){g+=d;if(gl.length<6)gl.push(ns[i-1]+1+(d>1?'–'+(ns[i]-1):''))}}if(g)NOT.push(`${sr} serisi gider pusulalarında ${g} numara atlanmış (ör. ${gl.join(', ')}); iptal edilen pusulaysa sorun yok, değilse eksik kayıt olabilir.`)}}
+  const muk=[...mukk].filter(([k,v])=>v>1&&!iadeHesap(k.split('|')[0])).map(([k])=>k.split('|')[1]);if(muk.length)bul('muk','sari','İptal / mükerrer',`Olası mükerrer kayıt: muavinde aynı belge aynı hesaba aynı tutarla iki satır olarak geçen ${muk.length} belge: ${liste([...new Set(muk)])}.`,'Tekrarlanan satırı kayıttan çıkarın.',0);
+  // kritik notlar
+  const K=[];
+  if(has_.gS)K.push(`Satış: GİB'de ${new Set([...sa,...saIade].map(x=>x.no)).size} satış belgesi${saIade.length?` (${saIade.length} tanesi alınan malların iadesi faturası)`:''}${eS?`, ${eS.eslesen} tanesi ${defterMod?'defter gelir kayıtlarıyla':'muavin 391 ile'} fatura no ve KDV tutarıyla eşleşti`:''}. İptal/red ${[...ipt].length} belge${ipt.size?' kontrolden çıkarıldı':''}.`);
+  if(has_.gA){const kan={};for(const x of al)kan[x.kanal]=(kan[x.kanal]||0)+1;K.push(`Alış: ${al.length} belge (${Object.entries(kan).map(([a,b])=>`${b} ${a}`).join(', ')})${eA?`, ${eA.eslesen} tanesi ${defterMod?'defter gider kayıtlarıyla':'muavin 191 ile'} eşleşti`:''}.`)}
+  let tevOzet=null;
+  if(tevSat.length){const yi=tevSat.filter(s=>!s.tur.startsWith('Yurt dışı')),yd=tevSat.filter(s=>s.tur.startsWith('Yurt dışı'));const tt=r2(tevSat.reduce((a,s)=>a+s.tev,0));
+    const m109=has_.miz?sumT(/^191/,t=>/(^|[^a-z])tevkif(?!atsiz)|sorumlu|kdv 2/.test(norm(t.ad))?t.bakiye:0):null,m360=has_.miz?sumT(/^360/,t=>t.bakiye):null;
+    const or={};for(const s of yi)or[s.oran]=(or[s.oran]||0)+1;
+    K.push(`Tevkifat: ${yi.length?`${yi.length} yurtiçi tevkifatlı belge (${Object.entries(or).map(([a,b])=>`${b} adet ${a}`).join(', ')}; satıcıya ödenen ve tevkif edilen kısım belge bazında toplanıp GİB ile karşılaştırıldı)`:''}${yi.length&&yd.length?', ':''}${yd.length?`${yd.length} yurt dışı hizmet faturası (KDV'nin tamamı sorumlu sıfatıyla, ${tl(tevYd)})`:''}. Toplam tevkif ${tl(tt)}${m109!=null?`; 191 sorumlu hesabı ${tl(m109)}`:''}${m360!=null&&m360?`; KDV-2 tahakkuku (360) ${tl(m360)}`:''}${has(bey.sorumlu)?`; beyandaki sorumlu sıfatıyla ödenen ${tl(bey.sorumlu)}`:''}. Hizmet türünün tevkifat oranına uyduğunu faturadan teyit edin.`);
+    const sm=(a,f)=>r2(a.reduce((x,s)=>x+(s[f]||0),0));
+    tevOzet={yurtici:{adet:yi.length,satici:sm(yi,'satici'),tev:sm(yi,'tev'),toplam:sm(yi,'toplam'),gibTev:sm(yi.filter(s=>s.gibTev!=null),'gibTev')},yurtdisi:{adet:yd.length,tev:sm(yd,'tev')},toplamTev:tt,m109,m360:m360||null,beyan:has(bey.sorumlu)?bey.sorumlu:null};
+    if(m360&&m109!=null&&Math.abs(m360-m109)>=0.01&&Math.abs(m360-m109)<5)K.push(`KDV-2 tahakkuku (360) ile 191 sorumlu hesabı arasında ${tl(m109-m360)} TL kuruş farkı var.`);
+    else if(m360&&m109!=null&&Math.abs(m360-m109)>=5)bul('kdv2','kirmizi','Tevkifat / KDV-2',`KDV-2 tahakkuku (360) ${tl(m360)}, 191 sorumlu hesabı ${tl(m109)}. Fark ${tl(m109-m360)}.`,'KDV-2 beyanı ile 191.109 kaydını belge bazında karşılaştırın.',m109-m360)}
+  if(has(o.hesaplanan)&&m391!=null&&Math.abs(o.hesaplanan-m391)>=0.01&&Math.abs(o.hesaplanan-m391)<5)K.push(`Hesaplanan KDV'de beyan ile kayıt arasında ${tl(o.hesaplanan-m391)} TL yuvarlama farkı var: beyanname KDV'yi matrah × oran ile, kayıt fatura bazında hesaplıyor. Mahsup fişinde kapatın.`);
+  if(kk!=null&&(has_.gS||zVar)){const top=r2(sa.reduce((s,x)=>s+x.kdv+Object.values(x.m).reduce((a,b)=>a+b,0),0)+zT);K.push(`Kredi kartı satırı ${tl(kk)} (KDV dahil); GİB ve Z raporlarına göre KDV dahil satış ${tl(top)}${top>kk?`, aradaki ${tl(top-kk)} kart dışı tahsilat (nakit, havale, yemek kartı vb.) olmalı`:''}. ${pos==null?'GİB POS toplamı girilmediği için doğrulanamadı.':''}`)}
+  if(od==null&&has(o.devredenOnceki))K.push(`Önceki dönemden devreden ${tl(o.devredenOnceki)} geçen ayın kaydıyla karşılaştırılamadı; geçen ayın kontrolünü de bu ekrandan yapın.`);
+  const ggz=miz.filter(m=>/^689/.test(m.kod)&&/gecikme/.test(norm(m.ad))&&leaf(m));if(ggz.length)K.push(`KDV dışı: ${ggz.map(m=>`${m.kod} ${m.ad} ${tl(m.bb)}`).join(', ')} kanunen kabul edilmeyen giderdir; geçici ve yıllık beyanda KKEG olarak ilave edin.`);
+  if(zVar){const zl=(zData&&zData.zler)||[];const dolu=zl.filter(z=>num(z.top));const gt=r2(zl.reduce((s,z)=>s+num(z.top),0)),gk=r2(zl.reduce((s,z)=>s+num(z.kdv),0));
+    let s=`Z raporu: KDV dahil ${tl(zT)}, KDV ${tl(zV)} (${Object.keys(zK).map(r=>r==='?'?'oran belirsiz':'%'+r).join(', ')})`;
+    if(zl.length){s+=`; ${zl.length} Z, satış olan gün ${dolu.length}${zl.some(z=>+z.fisAdedi)?`, fiş ${zl.reduce((a,z)=>a+(+z.fisAdedi||0),0)}`:''}. Günlük toplamlar ${Math.abs(gt-zT)<0.01&&Math.abs(gk-zV)<0.01?'dönem toplamıyla tutarlı':`dönem toplamından farklı (günlük toplam ${tl(gt)} / KDV ${tl(gk)}); fotoğraftaki rakamları kontrol edin`}.`;
+      const cg={};for(const z of zl)(cg[z.cihaz||'1']=cg[z.cihaz||'1']||[]).push(parseInt(z.zNo,10));const eks=[];
+      for(const [cz,ns] of Object.entries(cg)){const a=ns.filter(n=>!isNaN(n)).sort((x,y)=>x-y);for(let i=1;i<a.length;i++)if(a[i]-a[i-1]<50)for(let n=a[i-1]+1;n<a[i];n++)eks.push(Object.keys(cg).length>1?`${n} (cihaz ${cz})`:n)}
+      if(Object.keys(cg).length>1)s+=` ${Object.keys(cg).length} ayrı yazar kasa var.`;
+      if(eks.length)s+=` Z numaralarında atlama var: ${eks.slice(0,10).join(', ')}. Eksik Z raporlarını isteyin.`;
+      const sifir=zl.filter(z=>!num(z.top)).length;if(sifir)s+=` ${sifir} gün satışsız (0,00) Z alınmış.`}
+    else s+='.';K.push(s);
+    const dz=def.filter(x=>x.yon==='satis'&&/^\d+$/.test(x.no)&&x.kdv).map(x=>({no:x.no,kdv:x.kdv,top:r2(x.kdv+Object.values(x.m).reduce((a,v)=>a+v,0)),ok:false}));
+    const pz=zl.filter(z=>num(z.kdv)).map(z=>({no:bno(z.zNo),kdv:r2(num(z.kdv)),top:r2(num(z.top)),ok:false}));
+    if(dz.length&&pz.length){for(const p of pz){const d=dz.find(d=>!d.ok&&d.no===p.no&&Math.abs(d.kdv-p.kdv)<1);if(d){d.ok=p.ok=true}}
+      const numHata=[];for(const p of pz.filter(p=>!p.ok)){const d=dz.find(d=>!d.ok&&Math.abs(d.kdv-p.kdv)<0.05);if(d){d.ok=p.ok=true;numHata.push(`Z ${p.no} deftere ${d.no} numarasıyla girilmiş`)}}
+      const eksZ=pz.filter(p=>!p.ok),fazZ=dz.filter(d=>!d.ok);
+      if(eksZ.length)bul('zeks','kirmizi','Z raporu',`Z raporunda olup deftere girilmemiş ${eksZ.length} Z: ${eksZ.map(p=>`Z ${p.no} (${tl(p.top)} TL, KDV ${tl(p.kdv)})`).join(', ')}. Bu satış beyan dışı kalmış.`,'Z\'yi deftere işleyin; beyanname verildiyse düzeltme beyannamesi verin.',eksZ.reduce((a,p)=>a+p.kdv,0));
+      if(fazZ.length)bul('zfaz','kirmizi','Z raporu',`Defterde Z olarak girilmiş ama Z raporlarında karşılığı bulunmayan ${fazZ.length} kayıt: ${fazZ.map(d=>`${d.no} (KDV ${tl(d.kdv)})`).join(', ')}.`,'Kaydın hangi Z\'ye ait olduğunu kontrol edin.',fazZ.reduce((a,d)=>a+d.kdv,0));
+      if(numHata.length)bul('znum','sari','Z raporu',`Z numarası deftere yanlış yazılmış (tutar doğru): ${numHata.join('; ')}.`,'Defterdeki Z numaralarını düzeltin.',0);
+      K.push(`Z ile defter: ${pz.length} satışlı Z'nin ${pz.length-eksZ.length} tanesi defterde bulundu${numHata.length?`, ${numHata.length} tanesi yanlış numarayla`:''}${eksZ.length?`; ${eksZ.length} Z deftere girilmemiş`:''}. Defter ile Z arasındaki kuruş farkları yuvarlamadır.`)}
+    if(zl.length&&(Math.abs(gt-zT)>=1||Math.abs(gk-zV)>=1))bul('zgun','sari','Z raporu',`Z raporlarının günlük toplamı ${tl(gt)} (KDV ${tl(gk)}), dönem toplamı ${tl(zT)} (KDV ${tl(zV)}). Fark ${tl(gt-zT)} / KDV ${tl(gk-zV)}.`,'Fotoğraftaki rakamları ve eksik Z raporu olup olmadığını kontrol edin.',gt-zT)}
+  if(defterMod)K.unshift('Kayıt kaynağı: işletme defteri (Defter-Beyan) gelir ve gider kayıtları; tabloda 191, 391 ve 600 satırları defterden oluşturuldu.');
+  K.push(...NOT);K.push('Otomatik kontrol dışında kalan: KKEG kısıtları (binek oto, akaryakıt, yemek kartı) ve firmaya özel kurallar.');
+  const kr=B.filter(b=>b.seviye==='kirmizi').length,sr=B.filter(b=>b.seviye!=='kirmizi').length;
+  const eksik=!has(o.hesaplanan)?'Kontrol eksik: KDV-1 beyannamesi yüklenmediği (veya tutarları yazılmadığı) için beyan kontrol edilemedi; aşağıdaki sonuç yalnızca kayıt ile GİB verisine dayanıyor. ':!has_.miz?'Kontrol eksik: mizan veya defter kayıtları yüklenmediği için beyanname kayıtla karşılaştırılamadı; aşağıdaki sonuç yalnızca beyan ile GİB verisine dayanıyor. ':(!has_.gA&&!has_.gS&&!zVar)?'Kontrol eksik: GİB listeleri yüklenmediği için kayıt GİB verisiyle karşılaştırılamadı. ':satEksik?'Kontrol kısmen eksik: GİB satış listesi tam yüklenmediği için satışlar belge bazında doğrulanamadı. ':alEksik?'Kontrol kısmen eksik: GİB alış listesi tam yüklenmediği için indirilecek KDV belge bazında doğrulanamadı; beyan ile mizan tutarları karşılaştırıldı. ':'';
+  const sonuc0=kr?`${kr} kırmızı bulgu var; kapatılmadan onay verilmemeli. Beyanname verildiyse düzeltme beyannamesi değerlendirilmeli.${sr?` Ayrıca ${sr} sarı nokta açıklanmalı.`:''}`:sr?`Beyanname kayıtlar ve GİB verisiyle tutarlı; kırmızı bulgu yok. ${sr} sarı nokta açıklanmalı.`:'Beyanname kayıtlar ve GİB verisiyle tutarlı; bulgu yok.';
+  const sonuc=eksik?eksik+(kr||sr?(kr?`${kr} kırmızı, `:'')+`${sr} sarı bulgu var; `:'Bulgu yok; ')+'eksik dosyalar yüklenince kontrolü yeniden çalıştırın.':sonuc0;
+  const kay={beyan:pdf||has(o.hesaplanan),mizan:has_.miz&&!defterMod,defter:defterMod,muavin:has_.mu,ayrim:tabs.some(t=>t.tur==='gib'),earsiv:has_.gA||has_.gS,esmm:al.some(x=>x.kanal==='e-smm'),pusula:pus.length>0,z:zVar,pos:pos!=null};
+  return{sonrakiAyBelge,tevkifat:tevSat,tevOzet,bulgular:B,kaynaklar:Object.fromEntries(Object.entries(kay).filter(([,v])=>v)),tablo,kars,notlar:K,sonuc,not:sonuc}}
+
+// ---------- Excel çıktısı (yazdırmaya hazır kontrol tablosu)
+async function excelOlustur(firma,donem,k){const EJ=window.ExcelJS;if(!EJ)throw new Error('Excel kütüphanesi yüklenemedi');
+  const wb=new EJ.Workbook();const NF='#,##0.00;-#,##0.00;"-"';const ar=(o={})=>({name:'Arial',size:9,...o});
+  const fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});const ince={style:'thin',color:{argb:'FFBFBFBF'}};const kenar={top:ince,left:ince,bottom:ince,right:ince};
+  const ws=wb.addWorksheet('Kontrol',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.2,footer:0.2}},headerFooter:{oddFooter:'&L'+firma+' · '+donem+' KDV-1 kontrolü&RSayfa &P / &N'}});
+  [14,44,4,15,15,15,15,13,11,9,13,11,9,14,13].forEach((w,i)=>ws.getColumn(i+1).width=w);
+  const t=(r,c,v,o={})=>{const x=ws.getCell(r,c);x.value=v;x.font=ar(o.font||{});if(o.nf)x.numFmt=o.nf;if(o.fill)x.fill=fill(o.fill);if(o.b)x.border=kenar;if(o.al)x.alignment=o.al;return x};
+  t(1,1,'KDV-1 KONTROL TABLOSU',{font:{bold:true,size:12}});t(2,1,firma,{font:{bold:true,size:11}});
+  t(3,1,'Dönem :',{font:{bold:true}});t(3,2,donem);t(4,1,'Kontrol tarihi :',{font:{bold:true}});t(4,2,trDate(k.kontrolTarihi||today()));
+  if(k.hazirlayan){t(4,4,'Hazırlayan :',{font:{bold:true}});t(4,5,k.hazirlayan)}
+  const H=['HESAP KODU','HESAP ADI','','BORÇ','ALACAK','BORÇ BAKİYESİ','ALACAK BAKİYESİ','e-fatura','e-smm','fiş','e-arşiv','tevkifat','gider pusulası','toplam','fark'];
+  H.forEach((h,i)=>t(6,i+1,h,{font:{bold:true},fill:'FFD9D9D9',b:1,al:{horizontal:'center'}}));
+  let R=6;const KOL=['e-fatura','e-smm','fis','e-arsiv','tevkifat','gider'];
+  for(const s of k.tablo||[]){R++;const fb={bold:!s.leaf};
+    t(R,1,s.kod,{font:fb,b:1});t(R,2,s.ad,{font:fb,b:1});t(R,3,s.leaf?'TL':'',{b:1});
+    [s.b,s.a,s.bb,s.ab].forEach((v,i)=>t(R,4+i,v||null,{font:fb,nf:NF,b:1}));
+    KOL.forEach((c,i)=>t(R,8+i,s.src&&s.src[c]?s.src[c]:null,{nf:NF,b:1,font:{color:{argb:'FF0000FF'}}}));
+    if(s.leaf){t(R,14,{formula:`SUM(H${R}:M${R})`,result:s.toplam},{nf:NF,b:1});const fk=t(R,15,{formula:`N${R}-F${R}-G${R}`,result:s.fark},{nf:NF,b:1,font:{bold:Math.abs(s.fark)>=1}});
+      if(Object.values(s.src||{}).some(Boolean)&&Math.abs(s.fark)>=5)fk.fill=fill('FFF8DCD8')}
+    else{t(R,14,null,{b:1});t(R,15,null,{b:1})}}
+  R+=1;t(R,1,'Mavi rakamlar kaynak dosyalardan alınmıştır: e-fatura ve e-arşiv = KDV ayrım raporu / GİB listeleri, e-smm = e-SMM listesi, tevkifat = ayrım raporu tevkifat sütunları. fark = toplam − bakiye.',{font:{italic:true,color:{argb:'FF595959'}}});
+  R+=2;t(R,1,'BEYANNAME KARŞILAŞTIRMASI',{font:{bold:true,size:10}});R++;
+  ['Kalem','','','Beyanname','Kayıt (mizan/defter)','GİB kaynakları','Fark (Beyan−Mizan)','Durum'].forEach((h,i)=>t(R,i+1,h,{font:{bold:true},fill:'FFD9D9D9',b:1}));
+  for(const x of k.kars||[]){R++;t(R,1,x.ad,{b:1});ws.mergeCells(R,1,R,3);t(R,4,x.beyan,{nf:NF,b:1});t(R,5,x.mizan,{nf:NF,b:1});t(R,6,x.gib,{nf:NF,b:1});
+    t(R,7,x.fark==null?null:{formula:`D${R}-E${R}`,result:x.fark},{nf:NF,b:1});const d=t(R,8,x.durum,{b:1});ws.mergeCells(R,8,R,11);
+    if(/^Fark var/.test(x.durum))d.fill=fill('FFF8DCD8');else if(/Doğrulanamadı|girilmedi|Yuvarlama/.test(x.durum))d.fill=fill('FFFFF2CC');else if(/Tutarlı/.test(x.durum))d.fill=fill('FFDCF0E2')}
+  const blok=(baslik,satirlar,dolgu)=>{R+=2;for(let c=1;c<=15;c++)ws.getCell(R,c).fill=fill('FF2E3175');t(R,1,baslik,{font:{bold:true,size:10,color:{argb:'FFFFFFFF'}},fill:'FF2E3175'});
+    for(const s of satirlar){R++;ws.mergeCells(R,1,R,15);t(R,1,s,{al:{wrapText:true,vertical:'top'},fill:dolgu});ws.getRow(R).height=Math.max(15,13*Math.ceil(s.length/190))}};
+  const bl=(k.bulgular||[]).map(b=>`${b.seviye==='kirmizi'?'KIRMIZI':'SARI'}${b.duzeltildi?' (düzeltildi)':''} · ${b.kategori}: ${b.aciklama}${b.oneri?' Yapılacak: '+b.oneri:''}`);
+  if(bl.length)blok('BULGULAR',bl,'FFFDF5E6');
+  blok('KRİTİK NOTLAR',(k.notlar||[]).map((s,i)=>`${i+1}. ${s}`),null);
+  blok('SONUÇ',[k.sonuc||''],(k.bulgular||[]).some(b=>b.seviye==='kirmizi'&&!b.duzeltildi)?'FFF8DCD8':/^Kontrol eksik/.test(k.sonuc||'')?'FFFFF2CC':'FFDCF0E2');
+  R+=2;t(R,1,'Kontrol eden:',{font:{bold:true}});t(R,5,'Onaylayan (şef):',{font:{bold:true}});t(R,10,'Tarih:',{font:{bold:true}});
+  ws.views=[{state:'frozen',ySplit:6,xSplit:2}];ws.pageSetup.printTitlesRow='6:6';
+  if((k.tevkifat||[]).length){const w2=wb.addWorksheet('Tevkifat',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});
+    [20,44,18,16,14,9,15,13,40].forEach((w,i)=>w2.getColumn(i+1).width=w);const c=(r,cc,v,o={})=>{const x=w2.getCell(r,cc);x.value=v;x.font=ar(o.font||{});if(o.nf)x.numFmt=o.nf;if(o.fill)x.fill=fill(o.fill);if(o.b)x.border=kenar;return x};
+    c(1,1,`${firma} · ${donem} · Tevkifat ve sorumlu sıfatıyla KDV`,{font:{bold:true,size:11}});
+    const T=k.tevkifat,yi=T.filter(s=>!/^Yurt dışı/.test(s.tur)),yd=T.filter(s=>/^Yurt dışı/.test(s.tur));let R=2;const ref={};
+    if(yi.length){R+=1;c(R,1,'YURTİÇİ TEVKİFATLI ALIMLAR',{font:{bold:true,color:{argb:'FFFFFFFF'}},fill:'FF2E3175'});for(let i=2;i<=9;i++)w2.getCell(R,i).fill=fill('FF2E3175');R++;
+      ['Belge no','Karşı taraf','Satıcıya ödenen KDV','Tevkif (KDV-2)','Toplam KDV','Oran','GİB toplam KDV','GİB tevkif','Durum'].forEach((h,i)=>c(R,i+1,h,{font:{bold:true},fill:'FFD9D9D9',b:1}));const s0=R+1;
+      for(const s of yi){R++;[s.no,s.karsi,s.satici,s.tev,{formula:`C${R}+D${R}`,result:s.toplam},s.oran+(s.gibOran&&s.gibOran!==s.oran?` (GİB ${s.gibOran})`:''),s.gibKdv,s.gibTev,s.durum].forEach((v,i)=>c(R,i+1,v,{b:1,nf:[2,3,4,6,7].includes(i)?NF:undefined}))}
+      R++;c(R,1,`Yurtiçi toplam (${yi.length} belge)`,{font:{bold:true},b:1});c(R,2,'',{b:1});['C','D','E','G','H'].forEach(L=>{const x=w2.getCell(`${L}${R}`);x.value={formula:`SUM(${L}${s0}:${L}${R-1})`};x.numFmt=NF;x.font=ar({bold:true});x.border=kenar});ref.yi=R;R++}
+    if(yd.length){R+=1;c(R,1,"YURT DIŞINDAN ALINAN HİZMETLER (KDV'nin tamamı sorumlu sıfatıyla)",{font:{bold:true,color:{argb:'FFFFFFFF'}},fill:'FF2E3175'});for(let i=2;i<=9;i++)w2.getCell(R,i).fill=fill('FF2E3175');R++;
+      ['Belge no','Karşı taraf','','Sorumlu KDV (KDV-2)','','','','','Durum'].forEach((h,i)=>c(R,i+1,h,{font:{bold:true},fill:'FFD9D9D9',b:1}));const s0=R+1;
+      for(const s of yd){R++;c(R,1,s.no,{b:1});c(R,2,s.karsi,{b:1});c(R,4,s.tev,{b:1,nf:NF});c(R,9,s.durum,{b:1})}
+      R++;c(R,1,`Yurt dışı toplam (${yd.length} belge)`,{font:{bold:true},b:1});const x=w2.getCell(`D${R}`);x.value={formula:`SUM(D${s0}:D${R-1})`};x.numFmt=NF;x.font=ar({bold:true});x.border=kenar;ref.yd=R;R++}
+    const o=k.tevOzet||{};R+=1;c(R,1,'GENEL TOPLAM (NET)',{font:{bold:true,color:{argb:'FFFFFFFF'}},fill:'FF2E3175'});for(let i=2;i<=9;i++)w2.getCell(R,i).fill=fill('FF2E3175');R++;
+    ['Kalem','','','Tutar','Fark (− belgeler)','','','','Durum'].forEach((h,i)=>c(R,i+1,h,{font:{bold:true},fill:'FFD9D9D9',b:1}));
+    R++;c(R,1,'Yurtiçi tevkifat (KDV-2)',{b:1});c(R,4,ref.yi?{formula:`D${ref.yi}`}:0,{b:1,nf:NF});const ry=R;
+    R++;c(R,1,'Yurt dışı hizmet sorumlu KDV',{b:1});c(R,4,ref.yd?{formula:`D${ref.yd}`}:0,{b:1,nf:NF});
+    R++;const rt=R;c(R,1,'Toplam sorumlu sıfatıyla KDV (belgelerden)',{font:{bold:true},b:1});c(R,4,{formula:`D${ry}+D${ry+1}`},{font:{bold:true},b:1,nf:NF});
+    for(const [ad,v] of [['Mizan · 191 sorumlu sıfatıyla hesabı',o.m109],['Mizan · 360 KDV-2 tahakkuku',o.m360],['KDV-1 beyanı · sorumlu sıfatıyla ödenen KDV',o.beyan]]){if(v==null)continue;R++;c(R,1,ad,{b:1});c(R,4,v,{b:1,nf:NF});c(R,5,{formula:`D${R}-D${rt}`},{b:1,nf:NF});c(R,9,{formula:`IF(ABS(E${R})<0.01,"Tutarlı",IF(ABS(E${R})<5,"Kuruş farkı","Fark var"))`},{b:1})}
+    if(yi.length){R++;c(R,1,'Yurtiçi alımlarda satıcıya ödenen KDV',{b:1});c(R,4,{formula:`C${ref.yi}`},{b:1,nf:NF});R++;c(R,1,"Tevkifatlı alımların toplam KDV'si (satıcı + tevkif)",{font:{bold:true},b:1});c(R,4,{formula:`E${ref.yi}`},{font:{bold:true},b:1,nf:NF})}}
+  return wb.xlsx.writeBuffer()}
+
+// ---------- otomatik kontrol: ekran ve akış
+const OZI=[['hesaplanan','Hesaplanan KDV'],['indirimler','İndirimler toplamı'],['devredenOnceki','Önceki dönemden devreden'],['odenecek','Ödenecek KDV'],['sonrakiDevreden','Sonraki döneme devreden'],['krediKarti','Beyandaki kredi kartı tutarı'],['zTop','Z raporu toplamı (KDV dahil)'],['zKdv','Z raporu KDV'],['pos','GİB POS toplamı (elle)']];
+S.tid=0;S.up=null;S.sample=null;
+function upFor(mid){if(!S.up||S.up.mid!==mid)S.up={mid,tablolar:[],ozet:{},beyan:null,msg:'',err:false,busy:false,yok:{}};if(!S.up.yok)S.up.yok={};return S.up}
+const PAKET=[
+  {k:'beyan',l:'KDV-1 beyannamesi (PDF)',yok:false,ok:(T,oz)=>T.has('beyan')||has(oz.hesaplanan)},
+  {k:'kayit',l:'Mizan + muavin 191/391 (bilanço) ya da Defter-Beyan gelir-gider (şahıs)',yok:false,ok:T=>(T.has('mizan')&&T.has('muavin'))||T.has('defter'),ek:T=>T.has('mizan')&&!T.has('muavin')?'muavin eksik':T.has('muavin')&&!T.has('mizan')?'mizan eksik':''},
+  {k:'satis',l:'GİB satış listesi (KDV ayrım raporu ya da giden e-arşiv/e-fatura)',yok:true,ok:T=>T.has('gib')||T.has('gib_satis')},
+  {k:'alis',l:'GİB alış listesi (KDV ayrım raporu ya da gelen faturalar)',yok:true,ok:T=>T.has('gib')||T.has('gib_alis')},
+  {k:'esmm',l:'e-SMM listesi (GİB portalı, alınan makbuzlar)',yok:true,ok:T=>T.has('esmm')},
+  {k:'pusula',l:'Gider pusulası / satış iadesi dökümü',yok:true,ok:T=>T.has('pusula')},
+  {k:'z',l:'Z raporları (yazar kasa / ÖKC)',yok:true,ok:(T,oz)=>T.has('z')||has(oz.zTop)},
+  {k:'pos',l:'GİB POS toplamı (aşağıya elle yazılır)',yok:true,ok:(T,oz)=>has(oz.pos)},
+  {k:'sonraki',l:'Sonraki ay da GİB\'den sorgulandı: e-Fatura/e-Arşiv alış ve e-SMM (ör. Eylül kontrolü için Ekim). GİB raporlanma tarihine göre getirir; geç raporlanan belgeler ancak sonraki ay sorgusunda düşer.',yok:false,onay:true,ok:(T,oz,u)=>!!u.sonraki}];
+function paketDurum(mid){const u=upFor(mid);const f=S.firmalar[mid]||{};const fy=f.paketYok||{};const k=kDoc(mid)||{};const oz={...(k.ozet||{}),...u.ozet};
+  const T=new Set(u.tablolar.filter(t=>t.tur!=='diger').map(t=>t.tur));
+  return PAKET.map(p=>{const ok=p.ok(T,oz,u);const ek=!ok&&p.ek?p.ek(T):'';return{...p,ek,d:ok?'var':p.yok&&fy[p.k]?'firma':p.yok&&u.yok[p.k]?'ay':'eksik'}})}
+function vPaket(mid){const P=paketDurum(mid);const eks=P.filter(p=>p.d==='eksik');
+  return `<div class="paket" aria-label="Dosya paketi"><div class="paketbas"><b>Dosya paketi</b><span class="chip ${eks.length?'warn':'ok'}">${eks.length?eks.length+' eksik':'tamam'}</span></div>
+  ${P.map(p=>`<div class="pk ${p.d}"><span class="pki" aria-hidden="true">${p.d==='var'?'✓':p.d==='eksik'?'!':'–'}</span><span class="pkl">${esc(p.l)}${p.ek?` <span class="muted">(${esc(p.ek)})</span>`:''}</span>
+    <span class="pks">${p.d==='var'?(p.onay?'<span class="chip ok">onaylandı</span> <button class="ghost" data-pkgeri="sonraki">geri al</button>':'<span class="chip ok">yüklendi</span>'):p.d==='ay'?'<span class="chip">bu ay yok</span> <button class="ghost" data-pkgeri="'+p.k+'">geri al</button>':p.d==='firma'?'<span class="chip">bu firmada yok</span> <button class="ghost" data-pkgeri="'+p.k+'">geri al</button>':p.onay?'<button data-pksonraki="1">Sorguladım, onaylıyorum</button>':p.yok?'<button data-pkay="'+p.k+'">Bu ay yok</button> <button class="ghost" data-pkfirma="'+p.k+'">Bu firmada hiç yok</button>':'<span class="chip warn">zorunlu</span>'}</span></div>`).join('')}</div>`}
+function vYukle(mid){const u=S.up&&S.up.mid===mid?S.up:null;const oz={...((kDoc(mid)||{}).ozet||{}),...(u?u.ozet:{})};
+  const rows=u?u.tablolar.map(t=>{const ek=t.text!=null?[]:gerekli(t);return `<tr><td class="name">${esc(t.ad)}${t.sayfa?` <span class="muted">· ${esc(t.sayfa)}</span>`:''}</td>
+    <td><select id="tur_${t.id}" data-tur="${t.id}" aria-label="Dosya türü">${TUR.map(([k,l])=>`<option value="${k}" ${t.tur===k?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td class="r num">${t.img?'Foto':t.text!=null?'PDF':Math.max(0,t.rows.length-t.hdr-1)}</td>
+    <td>${t.img?(t.zOkundu?`<span class="chip ok">${esc(t.zOzet)}</span>`:'<span class="chip warn">Z toplamlarını elle yazın</span>'):t.tur==='diger'?'<span class="muted">kullanılmayacak</span>':t.tur==='beyan'?(t.okundu?'<span class="chip ok">tutarlar okundu</span>':'<span class="chip warn">tutarları elle yazın</span>'):ek.length?`<span class="chip warn">bulunamadı: ${esc(ek.join(', '))}</span>`:t.tur==='gib_alis'?'<span class="chip ok">alış olarak okundu</span>':t.tur==='gib_satis'?'<span class="chip ok">satış olarak okundu</span>':'<span class="chip ok">tamam</span>'}</td>
+    <td><button class="ghost" data-tsil="${t.id}" aria-label="Dosyayı çıkar">✕</button></td></tr>`}).join(''):'';
+  return `<div class="up"><div><h3>Dosyalar ve beyan tutarları</h3><div class="muted" style="font-size:12.5px">KDV-1 beyannamesi (PDF), mizan ve muavin (bilanço) ya da Defter-Beyan gelir-gider kayıtları (şahıs), KDV ayrım raporu, GİB e-arşiv ve e-SMM listeleri. Dosyalar yalnızca bu ekranda okunur, hiçbir yere kaydedilmez.</div></div>
+  <label class="drop" id="drop" for="dosya"><input type="file" id="dosya" multiple accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.webp,image/*"><b>Dosyaları seçin</b> <span class="muted">ya da buraya sürükleyin</span></label>
+  ${u&&u.msg?`<div class="note${u.err?' err':''}">${esc(u.msg)}</div>`:''}${u&&u.uyari?`<div class="note err">${esc(u.uyari)}</div>`:''}
+  ${rows?`<div class="tblwrap"><table class="grid"><thead><tr><th>Dosya</th><th>Tür</th><th class="r">Satır</th><th>Okuma</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
+  <div class="ozgrid">${OZI.map(([c,l])=>`<div class="f"><label class="sm" for="oz_${c}">${l}</label><input type="text" inputmode="decimal" id="oz_${c}" data-oz="${c}" value="${has(oz[c])?tl(oz[c]):''}" placeholder="0,00"${c==='pos'?' class="posin"':''}></div>`).join('')}</div>
+  ${vPaket(mid)}
+  ${(()=>{const e=paketDurum(mid).filter(p=>p.d==='eksik');return e.length?`<div class="note err">Kontrol için eksik: ${esc(e.map(p=>p.l.split(' (')[0]).join(', '))}. Dosyayı yükleyin ya da o ay gerçekten yoksa "yok" olarak işaretleyin.</div>`:''})()}
+  <div class="actions"><button class="pri" data-calistir="1" ${u&&u.busy||paketDurum(mid).some(p=>p.d==='eksik')?'disabled':''}>${u&&u.busy?'Çalışıyor…':'Kontrolü çalıştır'}</button>${u&&u.tablolar.length?'<button data-temizle="1">Dosyaları temizle</button>':''}</div></div>`}
+const n2=v=>v==null||v===''?'':tl(v);
+function vTev(k){const T=k.tevkifat||[];if(!T.length)return '';const yi=T.filter(s=>!/^Yurt dışı/.test(s.tur)),yd=T.filter(s=>/^Yurt dışı/.test(s.tur));
+  const durum=s=>`<span class="chip ${/tutarlı/.test(s.durum)?'ok':/yurt dışı/.test(s.durum)?'':'warn'}">${esc(s.durum)}</span>`;const sm=(a,f)=>a.reduce((x,s)=>x+(s[f]||0),0);
+  const t1=yi.length?`<h3>Yurtiçi tevkifatlı alımlar</h3><div class="tblwrap"><table class="grid"><thead><tr><th>Belge</th><th>Karşı taraf</th><th class="r">Satıcıya ödenen KDV</th><th class="r">Tevkif (KDV-2)</th><th class="r">Toplam KDV</th><th>Oran</th><th class="r">GİB toplam KDV</th><th class="r">GİB tevkif</th><th>Durum</th></tr></thead><tbody>${yi.map(s=>`<tr><td class="num">${esc(s.no)}</td><td class="name">${esc(s.karsi)}</td><td class="r num">${n2(s.satici)}</td><td class="r num">${n2(s.tev)}</td><td class="r num">${n2(s.toplam)}</td><td class="num">${esc(s.oran)}${s.gibOran&&s.gibOran!==s.oran?` <span class="chip bad">GİB ${esc(s.gibOran)}</span>`:''}</td><td class="r num">${n2(s.gibKdv)}</td><td class="r num">${n2(s.gibTev)}</td><td>${durum(s)}</td></tr>`).join('')}<tr class="par"><td colspan="2"><b>Yurtiçi toplam (${yi.length} belge)</b></td><td class="r num"><b>${tl(sm(yi,'satici'))}</b></td><td class="r num"><b>${tl(sm(yi,'tev'))}</b></td><td class="r num"><b>${tl(sm(yi,'toplam'))}</b></td><td></td><td class="r num"><b>${tl(sm(yi,'gibKdv'))}</b></td><td class="r num"><b>${tl(sm(yi,'gibTev'))}</b></td><td></td></tr></tbody></table></div>`:'';
+  const t2=yd.length?`<h3>Yurt dışından alınan hizmetler (KDV'nin tamamı sorumlu sıfatıyla)</h3><div class="tblwrap"><table class="grid"><thead><tr><th>Belge</th><th>Karşı taraf</th><th class="r">Sorumlu KDV (KDV-2)</th><th>Durum</th></tr></thead><tbody>${yd.map(s=>`<tr><td class="num">${esc(s.no)}</td><td class="name">${esc(s.karsi)}</td><td class="r num">${n2(s.tev)}</td><td>${durum(s)}</td></tr>`).join('')}<tr class="par"><td colspan="2"><b>Yurt dışı toplam (${yd.length} belge)</b></td><td class="r num"><b>${tl(sm(yd,'tev'))}</b></td><td></td></tr></tbody></table></div>`:'';
+  const o=k.tevOzet||{};const top=sm(T,'tev');const satir=(ad,v,ref)=>v==null?'':`<tr><td>${ad}</td><td class="r num">${tl(v)}</td><td class="r num">${ref?tl(r2(v-top)):''}</td><td>${ref?`<span class="chip ${Math.abs(v-top)<0.01?'ok':Math.abs(v-top)<5?'warn':'bad'}">${Math.abs(v-top)<0.01?'Tutarlı':Math.abs(v-top)<5?'Kuruş farkı':'Fark var'}</span>`:''}</td></tr>`;
+  const t3=`<h3>Genel toplam (net)</h3><div class="tblwrap"><table class="grid"><thead><tr><th>Kalem</th><th class="r">Tutar</th><th class="r">Fark</th><th>Durum</th></tr></thead><tbody>
+    <tr><td>Yurtiçi tevkifat (KDV-2)</td><td class="r num">${tl(sm(yi,'tev'))}</td><td></td><td></td></tr><tr><td>Yurt dışı hizmet sorumlu KDV</td><td class="r num">${tl(sm(yd,'tev'))}</td><td></td><td></td></tr>
+    <tr class="par"><td><b>Toplam sorumlu sıfatıyla KDV (belgelerden)</b></td><td class="r num"><b>${tl(top)}</b></td><td></td><td></td></tr>
+    ${satir('Mizan · 191 sorumlu sıfatıyla hesabı',o.m109,1)}${satir('Mizan · 360 KDV-2 tahakkuku',o.m360,1)}${satir('KDV-1 beyanı · sorumlu sıfatıyla ödenen KDV',o.beyan,1)}
+    ${yi.length?`<tr><td>Yurtiçi alımlarda satıcıya ödenen KDV (191 tevkifatsız kısımda)</td><td class="r num">${tl(sm(yi,'satici'))}</td><td></td><td></td></tr><tr class="par"><td><b>Tevkifatlı alımların toplam KDV'si (satıcı + tevkif)</b></td><td class="r num"><b>${tl(sm(yi,'toplam'))}</b></td><td></td><td></td></tr>`:''}
+  </tbody></table></div>`;
+  return t1+t2+t3}
+function vSonuc(mid){const k=kDoc(mid);if(!k||!k.tablo)return '';const KOL=[['e-fatura','e-fatura'],['e-smm','e-smm'],['fis','fiş'],['e-arsiv','e-arşiv'],['tevkifat','tevkifat'],['gider','gider pusulası']];
+  const tr=k.tablo.map(s=>{const kay=KOL.some(([c])=>s.src&&s.src[c]);const kotu=s.leaf&&kay&&Math.abs(s.fark)>=5;return `<tr class="${s.leaf?'':'par'}"><td class="num">${esc(s.kod)}</td><td class="name">${esc(s.ad)}</td><td class="r num">${n2(s.bb||null)}</td><td class="r num">${n2(s.ab||null)}</td>${KOL.map(([c])=>`<td class="r num src">${n2(s.src&&s.src[c])}</td>`).join('')}<td class="r num">${s.leaf?n2(s.toplam):''}</td><td class="r num ${kotu?'kfark':''}">${s.leaf?(kay||s.bakiye?n2(s.fark)||'0,00':''):''}</td></tr>`}).join('');
+  const kr=(k.kars||[]).map(x=>`<tr><td class="name">${esc(x.ad)}</td><td class="r num">${n2(x.beyan)}</td><td class="r num">${n2(x.mizan)}</td><td class="r num">${n2(x.gib)}</td><td class="r num">${x.fark==null?'':tl(x.fark)}</td><td><span class="chip ${/^Fark var/.test(x.durum)?'bad':/Tutarlı/.test(x.durum)?'ok':x.durum?'warn':''}">${esc(x.durum||'')}</span></td></tr>`).join('');
+  const acikK=(k.bulgular||[]).some(b=>b.seviye==='kirmizi'&&!b.duzeltildi);
+  return `<div class="sonuc"><div class="sheethead"><div><h3>Kontrol tablosu</h3><div class="muted" style="font-size:12.5px">Kayıt (mizan veya işletme defteri) ve kaynak toplamları · fark = toplam − bakiye</div></div><div class="actions"><button class="pri" data-xlk="1">Excel indir (yazdırmaya hazır)</button></div></div>
+  <div class="tblwrap"><table class="grid ktab"><thead><tr><th>Hesap</th><th>Hesap adı</th><th class="r">Borç bak.</th><th class="r">Alacak bak.</th>${KOL.map(([,l])=>`<th class="r">${l}</th>`).join('')}<th class="r">toplam</th><th class="r">fark</th></tr></thead><tbody>${tr||'<tr><td colspan="12" class="empty">Mizan veya defter kayıtları yüklenmediği için tablo boş. Bilanço firmasında mizan ve muavini, şahıs firmasında Defter-Beyan gelir-gider kayıtlarını yükleyin.</td></tr>'}</tbody></table></div>
+  <h3>Beyanname karşılaştırması</h3>
+  <div class="tblwrap"><table class="grid"><thead><tr><th>Kalem</th><th class="r">Beyanname</th><th class="r">Kayıt</th><th class="r">GİB</th><th class="r">Fark</th><th>Durum</th></tr></thead><tbody>${kr}</tbody></table></div>
+  ${vTev(k)}
+  <h3>Kritik notlar</h3><ol class="notlar">${(k.notlar||[]).map(n=>`<li>${esc(n)}</li>`).join('')}</ol>
+  <div class="note ${acikK||/^Kontrol eksik/.test(k.sonuc||'')?'err':'okn'}"><b>Sonuç:</b> ${esc(k.sonuc||'')}</div></div>`}
+async function pdfMetin(f){const lib=window.pdfjsLib;if(!lib)throw new Error('PDF okuyucu yüklenemedi');
+  const doc=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;let out='';
+  for(let p=1;p<=Math.min(doc.numPages,12);p++){const c=await(await doc.getPage(p)).getTextContent();
+    const it=c.items.filter(i=>i.str.trim()).map(i=>({x:i.transform[4],y:i.transform[5],s:i.str})).sort((a,b)=>b.y-a.y||a.x-b.x);
+    const L=[];for(const i of it){const l=L[L.length-1];if(l&&Math.abs(l.y-i.y)<=6)l.it.push(i);else L.push({y:i.y,it:[i]})}
+    out+=L.map(l=>l.it.sort((a,b)=>a.x-b.x).map(x=>x.s).join(' ')).join('\n')+'\n'}
+  return out}
+async function dosyaOku(f){const ext=f.name.split('.').pop().toLowerCase();
+  if(ext==='pdf')return [{ad:f.name,sayfa:'',tur:'beyan',text:await pdfMetin(f),rows:[],hdr:0}];
+  if(/^image\//.test(f.type)||/^(jpe?g|png|webp|heic)$/.test(ext))return [{ad:f.name,sayfa:'',tur:'z',img:f,rows:[],hdr:0}];
+  if(!window.XLSX)throw new Error('Excel okuyucu yüklenemedi');
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+  return wb.SheetNames.map(sn=>({ad:f.name,sayfa:wb.SheetNames.length>1?sn:'',rows:XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''})})).filter(t=>t.rows.length>1)}
+async function beyanClaude(text){if(!S.sample)return null;
+  const p=`Aşağıdaki KDV-1 beyannamesi metninden tutarları sayı olarak çıkar. Yalnızca JSON ver, bulamadığını yazma:
+{"hesaplanan":0,"indirimler":0,"devredenOnceki":0,"odenecek":0,"sonrakiDevreden":0,"krediKarti":0,"sorumlu":0,"donem":"YYYY/AA","matrah":{"10":0},"hkdv":{"10":0},"ikdv":{"10":0}}
+matrah ve hkdv: oranlara göre matrah ve hesaplanan KDV; ikdv: bu döneme ait indirilecek KDV'nin oranlara göre dağılımı.
+
+METİN:
+${text.slice(0,20000)}`;
+  try{return await S.sample.json(p,{modelTier:'default'})}catch{return null}}
+function beyanUygula(u,b,t){const o={};for(const c of OZK){const v=typeof b[c]==='string'?num(b[c]):b[c];if(has(v))o[c]=r2(v)}
+  Object.assign(u.ozet,o);u.beyan={...b,matrah:b.matrah||{},hkdv:b.hkdv||{},ikdv:b.ikdv||{}};t.okundu=has(o.hesaplanan);
+  u.uyari=b.donem&&String(b.donem)!==S.donem?`Beyanname ${b.donem} dönemine ait görünüyor, seçili dönem ${S.donem}. Üstten doğru dönemi seçin.`:''}
+async function zOku(u,zi){
+  const p=`Bu fotoğraflar yazar kasa (ödeme kaydedici cihaz) Z raporlarıdır: aylık mali rapor, mali hafıza raporu veya tek tek Z raporu olabilir. Fotoğraflar aynı şeridin parçaları olabilir; aynı Z'yi iki kez sayma. Birden fazla cihaza ait rapor olabilir (başlıktaki işyeri bilgisi, Z numara serisi veya rapor türü farklıdır); her cihazı ayrı rapor olarak ver.
+Bazı fotoğraflarda rakam sütunu etiketlerden bir satır kaymış olabilir; her Z'nin tarih, toplam ve KDV'sini o Z'ye ait değerlerden al.
+Her Z için: zNo, tarih (GG.AA.YYYY), fisAdedi, top (TOP veya TOPLAM, KDV dahil), kdv (KDV veya TOPKDV). Z 0000 gibi açılış satırlarını alma.
+Raporun sonundaki dönem toplamını (TOP/TOPLAM ve KDV/TOPKDV) "toplam" olarak ver. A.TOP, KÜM TOP, KÜ.TOP gibi kümülatif değerleri ALMA.
+Raporda KDV oranlarına göre dağılım varsa "oranlar" olarak ver, yoksa boş bırak. Okuyamadığın rakamı tahmin etme, null yaz. Tutarları nokta ondalıklı sayı olarak yaz (1.330,00 → 1330.00).
+Yalnızca JSON ver:
+{"raporlar":[{"cihaz":"1","zler":[{"zNo":"1917","tarih":"17.09.2026","fisAdedi":5,"top":735.00,"kdv":66.83}],"toplam":{"top":19232.00,"kdv":1748.40},"oranlar":[]}]}`;
+  try{const lim=await S.sample.limits().catch(()=>null);if(!lim||!lim.images){u.msg='Bu görünümde fotoğraf okunamıyor.';return false}
+    const res=await S.sample.json(p,{images:zi.map(t=>t.img).slice(0,lim.images.maxCount),modelTier:'complex'});
+    const rap=Array.isArray(res&&res.raporlar)?res.raporlar:res&&res.zler?[{cihaz:'1',zler:res.zler,toplam:res.toplam,oranlar:res.oranlar}]:[];
+    const tek=[],orn=[];let top=0,kdv=0;
+    rap.forEach((r,i)=>{const cz=String(r.cihaz||i+1);const seen=new Set();const zs=(Array.isArray(r.zler)?r.zler:[]).filter(z=>z&&(z.zNo||z.tarih)&&parseInt(z.zNo,10)!==0).filter(z=>{const k=String(z.zNo||z.tarih);if(seen.has(k))return false;seen.add(k);return true}).map(z=>({...z,cihaz:cz}));
+      tek.push(...zs);const t=r.toplam||{};top+=num(t.top)?num(t.top):zs.reduce((s,z)=>s+num(z.top),0);kdv+=num(t.kdv)?num(t.kdv):zs.reduce((s,z)=>s+num(z.kdv),0);if(Array.isArray(r.oranlar))orn.push(...r.oranlar.filter(x=>x&&num(x.kdv)))});
+    top=r2(top);kdv=r2(kdv);if(!tek.length&&!top)return false;
+    u.z={zler:tek,toplam:{top,kdv},oranlar:orn,cihaz:rap.length};
+    u.ozet.zTop=top;u.ozet.zKdv=kdv;zi.forEach(x=>{x.zOkundu=true;x.zOzet=`${rap.length>1?rap.length+' cihaz · ':''}${tek.length} Z · ${tl(top)} / KDV ${tl(kdv)}`});return true}
+  catch(e){return false}}
+async function dosyalarEkle(files){const mid=S.sec;if(!mid||!files.length)return;const u=upFor(mid);if(u.busy)return;u.busy=true;u.err=false;u.msg='Dosyalar okunuyor…';render();
+  try{const hata=[];
+    for(const f of files){try{for(const t of await dosyaOku(f)){t.id=++S.tid;if(t.text==null&&!t.img)hazirla(t);u.tablolar.push(t);
+      if(t.text!=null){let b=beyanOku(t.text);if(!has(b.hesaplanan)&&S.sample){u.msg='Beyanname standart biçimde değil; Claude tutarları okuyor…';render();b=(await beyanClaude(t.text))||b}beyanUygula(u,b,t)}}}
+      catch(e){hata.push(f.name)}}
+    const zi=u.tablolar.filter(t=>t.img&&!t.zOkundu);if(zi.length){if(S.sample){u.msg=`Claude ${zi.length} Z raporu fotoğrafını okuyor. Bu bir dakika kadar sürebilir…`;render();const ok=await zOku(u,zi);if(!ok)hata.push('Z raporu fotoğrafı (tutarları elle yazın)')}else hata.push('Z raporu fotoğrafı: bu görünümde okunamıyor, Z toplamlarını elle yazın')}
+    u.err=hata.length>0;u.msg=hata.length?`Okunamayan dosya: ${hata.join(', ')}. Diğerleri hazır.`:'Dosyalar hazır. Türleri ve beyan tutarlarını gözden geçirin, GİB POS toplamını yazın, sonra kontrolü çalıştırın.'}
+  finally{u.busy=false;render()}}
+function oncekiDoc(mid){const [y,m]=S.donem.split('/').map(Number);const d=new Date(y,m-2,1);return S.kontroller[`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}_${mid}`]}
+async function calistir(){const mid=S.sec;const u=upFor(mid);if(u.busy)return;u.busy=true;u.err=false;u.msg='Kontrol çalışıyor…';render();
+  try{const k=kDoc(mid)||{};const o={...(k.ozet||{}),...u.ozet};for(const c of Object.keys(o))if(!has(o[c]))delete o[c];
+    const bey=u.beyan||k.beyanDetay||null;
+    const tabs=u.tablolar.length?u.tablolar:[];const PD=paketDurum(mid);const eks=PD.filter(p=>p.d==='eksik');if(eks.length){u.err=true;u.msg='Dosya paketi eksik: '+eks.map(p=>p.l.split(' (')[0]).join(', ')+'.';return}
+    const r=hesapla(tabs,o,oncekiDoc(mid),bey,u.z||k.zDetay||null,S.donem);const eski=k.bulgular||[];
+    {const pk=Object.fromEntries(PD.map(p=>[p.k,p.d]));const yk=p=>pk[p]==='ay'||pk[p]==='firma';const lf=re=>r.tablo.filter(t=>t.leaf&&re(t)&&Math.abs(t.bakiye)>=1);const nm=t=>norm(t.ad);
+      const ekle=(kod,kat,ac,on,tut)=>r.bulgular.push({id:'o'+kod+r.bulgular.length,kod,seviye:'sari',kategori:kat,aciklama:ac,oneri:on,tutar:r2(Math.abs(tut||0)),duzeltildi:false,tarih:today(),kaynak:'oto'});
+      const sb=a=>a.reduce((q,t)=>q+t.bakiye,0);let a;
+      if(yk('pusula')&&(a=lf(t=>/^191/.test(t.kod)&&/iade/.test(nm(t)))).length)ekle('pkpusula','Satış iadesi',`Gider pusulası / iade dökümü "yok" işaretlendi, ama satış iadesi hesaplarında ${tl(sb(a))} KDV var (${a.map(t=>t.kod).join(', ')}).`,'İade dökümünü yükleyip kontrolü yeniden çalıştırın.',sb(a));
+      if(yk('z')&&(a=lf(t=>/z rapor/.test(nm(t)))).length)ekle('pkz','Z raporu',`Z raporu "yok" işaretlendi, ama kayıtta Z raporu hesapları var (${a.map(t=>t.kod).join(', ')}).`,'Z raporlarını yükleyip kontrolü yeniden çalıştırın.',sb(a));
+      if(yk('pos')&&has(o.krediKarti)&&o.krediKarti>0)ekle('pkpos','Kredi kartı',`POS "yok" işaretlendi, ama beyannamede ${tl(o.krediKarti)} kredi kartı tahsilatı var.`,'GİB POS toplamını yazıp kontrolü yeniden çalıştırın.',o.krediKarti);
+      if(yk('satis')&&(a=lf(t=>/^391/.test(t.kod)&&!/z rapor|iade/.test(nm(t)))).length)ekle('pksatis','Satış / e-Arşiv',`GİB satış listesi "yok" işaretlendi, ama hesaplanan KDV hesaplarında ${tl(sb(a))} var.`,'Satış listesini yükleyip kontrolü yeniden çalıştırın.',sb(a));
+      if(yk('alis')&&(a=lf(t=>/^191/.test(t.kod)&&!/iade|(^|[^a-z])tevkif(?!atsiz)|sorumlu|kdv 2/.test(nm(t)))).length)ekle('pkalis','Alış / e-Fatura',`GİB alış listesi "yok" işaretlendi, ama indirilecek KDV hesaplarında ${tl(sb(a))} var.`,'Alış listesini yükleyip kontrolü yeniden çalıştırın.',sb(a));
+      if(pk.sonraki==='var'&&r.sonrakiAyBelge===0&&(pk.alis==='var'))ekle('pksonraki','Alış / e-Fatura',`Sonraki ay sorgusu onaylandı, ama yüklenen alış listesinde sonraki aya ait hiç belge yok. Liste sonraki ay sorgusundan önce indirilmiş olabilir.`,'GİB\'den Getir ile sonraki ayı sorgulayıp listeyi yeniden indirin ve kontrolü tekrar çalıştırın.',0);
+      r.paket=pk;r.notlar.push('Dosya paketi: '+PD.map(p=>`${p.l.split(' (')[0]} ${p.d==='var'?'yüklendi':p.d==='ay'?'bu ay yok':'firmada yok'}`).join('; ')+'.');
+      const kr=r.bulgular.filter(b=>b.seviye==='kirmizi').length,sr=r.bulgular.filter(b=>b.seviye==='sari').length;if(r.bulgular.some(b=>/^pk/.test(b.kod))&&!kr)r.sonuc=r.sonuc.replace(/kırmızı bulgu yok\.( \d+ sarı nokta açıklanmalı\.| bulgu yok\.)?|bulgu yok\./,`kırmızı bulgu yok. ${sr} sarı nokta açıklanmalı.`)}
+    const yeni=r.bulgular.map(b=>{const e=eski.find(x=>x.kaynak==='oto'&&x.kod===b.kod&&x.aciklama===b.aciklama);return e?{...b,duzeltildi:!!e.duzeltildi,duzTarih:e.duzTarih||''}:b});
+    await kSet(mid,{bulgular:[...yeni,...eski.filter(b=>b.kaynak!=='oto')],ozet:o,zDetay:u.z||k.zDetay||null,beyanDetay:bey?{matrah:bey.matrah||{},hkdv:bey.hkdv||{},ikdv:bey.ikdv||{},sorumlu:bey.sorumlu??null}:null,kaynaklar:{...(k.kaynaklar||{}),...r.kaynaklar},tablo:r.tablo,kars:r.kars,tevkifat:r.tevkifat||[],tevOzet:r.tevOzet||null,notlar:r.notlar,sonuc:r.sonuc,paket:r.paket,paketKisi:k.hazirlayan||'',sonrakiSorgu:u.sonraki||'',not:'',kontrolTarihi:today(),durum:'',onayTarihi:''});
+    const a=acik(kDoc(mid));u.msg=a.r||a.s?`Kontrol tamamlandı: ${a.r} kırmızı, ${a.s} sarı bulgu.`:'Kontrol tamamlandı, bulgu çıkmadı. Sonuç ve Excel çıktısı aşağıda.'}
+  catch(e){u.err=true;u.msg='Kontrol çalıştırılamadı: '+(e&&(e.message||e.code)||'bilinmeyen hata')}
+  finally{u.busy=false;render()}}
+async function excelIndir(){const mid=S.sec;const k=kDoc(mid);if(!k||!k.tablo){toast('Önce kontrolü çalıştırın');return}
+  if(!S.dl){toast('Bu görünümde dosya indirilemiyor');return}
+  try{const f=S.firmalar[mid];const buf=await excelOlustur(f.ad,S.donem,k);
+    const ad=f.ad.replace(/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü ]+/g,'').trim().split(/\s+/).slice(0,2).join('_');
+    await S.dl.save({filename:`${ad}_KDV1_Kontrol_${kKey()}.xlsx`,data:buf});toast('Excel indirildi')}
+  catch(e){if(e&&e.code==='declined')return;toast('Excel oluşturulamadı: '+(e&&(e.message||e.code)||''))}}
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.id==='dosya'){const fs=[...t.files];t.value='';dosyalarEkle(fs);return}
+  if(t.dataset.tur){const x=S.up&&S.up.tablolar.find(x=>x.id===+t.dataset.tur);if(x){x.tur=t.value;render()}return}
+  if(t.dataset.oz){const u=upFor(S.sec);const s=t.value.trim();u.ozet[t.dataset.oz]=s?r2(num(s)):NaN;render()}});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.calistir){calistir();return}
+  if(d.xlk){excelIndir();return}
+  if(d.temizle){S.up=null;render();return}
+  if(d.pkay){upFor(S.sec).yok[d.pkay]=true;render();return}
+  if(d.pksonraki){upFor(S.sec).sonraki=today();render();return}
+  if(d.pkfirma){const f=S.firmalar[S.sec]||{};fSet(S.sec,{paketYok:{...(f.paketYok||{}),[d.pkfirma]:true}}).then(render,()=>toast('Kaydedilemedi'));render();return}
+  if(d.pkgeri){const u=upFor(S.sec);delete u.yok[d.pkgeri];if(d.pkgeri==='sonraki')u.sonraki='';const f=S.firmalar[S.sec]||{};if(f.paketYok&&f.paketYok[d.pkgeri]){const y={...f.paketYok};delete y[d.pkgeri];fSet(S.sec,{paketYok:y}).then(render,()=>toast('Kaydedilemedi'))}render();return}
+  if(d.tsil){const u=S.up;if(u){u.tablolar=u.tablolar.filter(x=>x.id!==+d.tsil);render()}return}});
+
+// ---------- Aktarım sekmesi: kayıt önerisi, şef seçimi ve onayı
+const AK={sec:null};
+const akKodlar=()=>(S.sablonlar||{}).dbs_kodlar||{tur:[],alt:[]};
+const akTurAd=k=>{const t=akKodlar().tur.find(x=>String(x.kod)===String(k));return t?t.ad:''};
+const akAltAd=(t,a)=>{const x=akKodlar().alt.find(z=>String(z.tur)===String(t)&&String(z.kod)===String(a));return x?x.ad:''};
+const akDocs=()=>Object.entries(S.aktarim||{}).filter(([id])=>id.startsWith(kKey()+'_'));
+const akKalemTam=k=>k.tur!==''&&k.tur!=null&&k.alt!==''&&k.alt!=null;
+const AK_EK=['ÖİV','ÖTV','ETV / BTV / enerji fonu','TRT payı','Konaklama vergisi','Diğer vergi','Ek vergi yok'];
+const AK_EK_VARS={'ÖİV':{tur:'5',alt:'218'}};
+const akR2=n=>Math.round((+n||0)*100)/100;
+const akKural=()=>((S.sablonlar||{}).vergi_kural||{}).k||{};
+// KDV'si satırda gelmeyen fatura: KDV tutarı (şef girer ya da aynı satıcının öğrenilmiş oranı)
+function akAyrim(s){if(s.oran!=='?')return null;if(s.ayrim&&s.ayrim.kdv!=null)return{...s.ayrim,kaynak:'sef'};
+  const r=akKural()[s.vkn];if(!r||r.kdvPay==null||s.vergi==null)return null;const kdv=akR2(s.matrah*r.kdvPay);
+  if(kdv>s.vergi+0.01)return{oran:r.oran,kdv,uyumsuz:true};return{oran:r.oran,kdv,kaynak:'kural',ornek:r.fatura}}
+// KDV dışındaki vergiler (ÖİV, ÖTV, fon…): ayrı, KDV'siz gider satırı olarak aktarılır
+function akEk(s){let tutar;if(s.oran==='?'){const a=akAyrim(s);if(!a||a.uyumsuz)return null;tutar=akR2(s.vergi-a.kdv)}else tutar=akR2(s.ekVergi||0);
+  if(Math.abs(tutar)<0.01)return null;const r=akKural()[s.vkn]||{};const tip=s.ekTip||r.tip||'';const k0=s.kalemler[0]||{};const kk=s.kalemler.slice(1).find(k=>!k.kdv)||{};
+  const v=AK_EK_VARS[tip]||(/ETV|TRT|Konaklama/.test(tip)?{tur:k0.tur,alt:k0.alt}:{});
+  const tur=s.ekTur||r.ekTur||kk.tur||v.tur||'',alt=s.ekAlt||r.ekAlt||kk.alt||v.alt||'';
+  return{tutar,tip,tur,alt,kural:!s.ekTip&&!!r.tip,yok:tip==='Ek vergi yok'}}
+function akAnaKalemler(s){if(s.oran!=='?')return s.kalemler;const a=akAyrim(s);const k0=s.kalemler[0]||{tur:'',alt:''};
+  return [{...k0,tutar:s.matrah,kdv:a&&!a.uyumsuz?a.kdv:null}]}
+const AK_DG={2025:9900,2026:12000};
+// 12.000 TL'yi (KDV hariç birim) aşan kalem: içeriğe göre yorum.
+// Mal görünümlü kalem -> sabit kıymet önerilir; gider kalacaksa şef gerekçe yazar. Hizmet (bakım, onarım, servis…) -> bilgi notu.
+const AK_HIZMET=/bak[ıi]m|onar[ıi]m|tamir|servis|i[şs][çc]ilik|hizmet|montaj|kurulum|kira|dan[ıi][şs]man|abonelik|reklam|kargo|nakliye|e[ğg]itim|yenileme|revizyon|tadilat/i;
+const akDgTur=b=>AK_HIZMET.test(b.ad||'')?'hizmet':'mal';
+const akSk=s=>s.kalemler.some(k=>['2','13'].includes(String(k.tur)));
+function akDgUyari(s){const b=(s.buyuk||[]).filter(x=>akDgTur(x)==='mal');if(!b.length||akSk(s)||s.dgGider)return null;return b}
+function akDurum(s){if(s.haric)return 'haric';if(s.lucada)return 'oto';if(akDgUyari(s))return 'bos';const ana=akAnaKalemler(s);if(!ana.every(akKalemTam))return 'bos';
+  if(s.oran==='?'){const a=akAyrim(s);if(!a||a.uyumsuz)return 'bos'}
+  const e=akEk(s);if(e&&(e.yok||!e.tip||!e.tur||!e.alt))return 'bos';
+  const otoA=s.oran!=='?'||akAyrim(s).kaynak==='kural';const otoE=!e||e.kural||(AK_EK_VARS[e.tip]&&!s.ekAlt);
+  if(s.durum==='bos'||s.kalemler.some(k=>k.manuel))return 'sef';
+  return otoA&&otoE&&s.durum==='oto'?'oto':s.durum==='oto'&&(!otoA||!otoE)?'sef':s.durum}
+function akVergiHtml(s,i,kilit){const a=akAyrim(s);const e=akEk(s);let h='';
+  if(s.oran==='?'){const oranOpt=['20','10','1','0'].map(o=>`<option ${String((a&&a.oran)||'20')===o?'selected':''}>${o}</option>`).join('');
+    h+=`<div class="muted">Faturadaki vergiler toplamı: <b>${s.vergi==null?'?':n2(s.vergi)}</b></div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"><label class="muted" for="akvo${i}">KDV %</label><select id="akvo${i}" data-akvo="${i}" ${kilit?'disabled':''}>${oranOpt}</select>
+    <label class="muted" for="akvk${i}">KDV tutarı</label><input id="akvk${i}" data-akvk="${i}" inputmode="decimal" style="width:90px" value="${a?String(a.kdv).replace('.',','):''}" ${kilit?'disabled':''}></div>
+    ${a&&a.hesap&&a.kaynak==='sef'?`<div class="muted">%${esc(a.oran)} ile hesaplandı (diğer vergiler KDV matrahına dahil). Faturadaki KDV farklıysa tutarı düzeltin.</div>`:''}${a&&a.kaynak==='kural'?`<div class="muted">Otomatik: ${esc(a.ornek||'')} faturasındaki şef ayrımının oranı uygulandı.</div>`:''}${a&&a.uyumsuz?`<div class="muted" style="color:#b42318">Öğrenilen oran bu faturaya uymadı; KDV'yi faturadan girin.</div>`:''}`}
+  if(e){const tipOpt=`<option value="">— vergi türü —</option>`+AK_EK.map(t=>`<option ${e.tip===t?'selected':''}>${t}</option>`).join('');
+    const turOpt=`<option value="">— kayıt türü —</option>`+akKodlar().tur.map(t=>`<option value="${esc(t.kod)}" ${String(e.tur)===String(t.kod)?'selected':''}>${esc(t.ad)}</option>`).join('');
+    const altOpt=`<option value="">— alt tür —</option>`+akKodlar().alt.filter(x=>String(x.tur)===String(e.tur)).map(x=>`<option value="${esc(x.kod)}" ${String(e.alt)===String(x.kod)?'selected':''}>${esc(x.ad)}</option>`).join('');
+    h+=`<div style="border-top:1px dashed var(--line,#ddd);padding-top:4px"><b>KDV dışı vergi: ${n2(e.tutar)}</b> <span class="muted">(KDV'siz ayrı gider satırı)</span></div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap"><select data-akvt="${i}" aria-label="Ek vergi türü" ${kilit?'disabled':''}>${tipOpt}</select><select data-akvr="${i}" aria-label="Ek vergi kayıt türü" ${kilit?'disabled':''}>${turOpt}</select><select data-akva="${i}" aria-label="Ek vergi alt türü" ${kilit?'disabled':''}>${altOpt}</select></div>
+    ${e.kural?`<div class="muted">Otomatik: bu satıcı için şefin önceki seçimi.</div>`:''}${e.yok?`<div class="muted" style="color:#b42318">Vergiler toplamı ile KDV arasında fark var; vergi türünü seçin.</div>`:''}`}
+  return h?`<div class="akv" style="display:grid;gap:4px;margin-top:6px;font-size:12px">${h}</div>`:''}
+async function akKuralYaz(s){const r={...(akKural()[s.vkn]||{})};const a=s.oran==='?'?akAyrim(s):null;
+  if(a&&!a.uyumsuz&&s.matrah){r.oran=a.oran;r.kdvPay=a.kdv/s.matrah}
+  if(s.ekTip){r.tip=s.ekTip;r.ekTur=s.ekTur||r.ekTur||'';r.ekAlt=s.ekAlt||r.ekAlt||''}
+  r.fatura=s.fatura;r.donem=kKey();const kur={...akKural(),[s.vkn]:r};S.sablonlar.vergi_kural={k:kur};try{await setDoc('sablonlar/vergi_kural',{k:kur})}catch(e){}}
+function vAktarim(){const ds=akDocs();
+  if(!ds.length)return akFisPanel()+`<div class="panel empty">${S.donem} dönemi için hazırlanmış aktarım önerisi yok. Fiş fotoğraflarını yukarıdan yükleyin; faturalar toplandığında Claude öneriyi buraya yazar.</div>`;
+  if(!AK.sec||!ds.find(([id])=>id===AK.sec))AK.sec=ds[0][0];
+  const doc=S.aktarim[AK.sec];const f=S.firmalar[doc.mid]||{ad:doc.mid};const ss=doc.satirlar||[];
+  const say={oto:0,kontrol:0,sef:0,bos:0,haric:0};ss.forEach(s=>say[akDurum(s)]++);const tamam=say.bos===0;
+  const turOpt=sel=>`<option value="">— seçin —</option>`+akKodlar().tur.map(t=>`<option value="${esc(t.kod)}" ${String(sel)===String(t.kod)?'selected':''}>${esc(t.ad)}</option>`).join('');
+  const altOpt=(t,sel)=>`<option value="">— seçin —</option>`+akKodlar().alt.filter(a=>String(a.tur)===String(t)).map(a=>`<option value="${esc(a.kod)}" ${String(sel)===String(a.kod)?'selected':''}>${esc(a.ad)}</option>`).join('');
+  const chip={oto:['ok','otomatik'],kontrol:['warn','kontrol et'],sef:['ok','şef seçti'],bos:['bad','şef seçecek'],haric:['warn','aktarılmaz']};
+  const rows=ss.map((s,i)=>{const d=akDurum(s);const [c,l]=chip[d];
+    const kl=akAnaKalemler(s);return kl.map((k,j)=>`<tr class="ak ${d}">${j===0?`<td rowspan="${kl.length}" class="name"><b>${esc(s.unvan||'')}</b><div class="muted">${esc(s.fatura)} · ${esc(s.tarih)} · ${esc(s.senaryo||'')}</div></td><td rowspan="${kl.length}" class="r num">%${esc(s.oran)}</td>`:''}
+      <td class="r num">${n2(k.tutar)}</td><td class="r num">${k.kdv==null?'<span class="chip warn">?</span>':n2(k.kdv)}</td>
+      <td><select data-akt="${i}.${j}" aria-label="Gider kayıt türü" ${doc.onay?'disabled':''}>${turOpt(k.tur)}</select><select data-aka="${i}.${j}" aria-label="Gider kayıt alt türü" ${doc.onay?'disabled':''}>${altOpt(k.tur,k.alt)}</select></td>
+      ${j===0?`<td rowspan="${kl.length}">${s.lucada?`<span class="chip ok">Luca'da kayıtlı</span><div class="muted akg">${esc(s.lucada)} — aktarım dosyasına alınmaz.</div>`:`<span class="chip ${c}">${l}</span>`}<div class="muted akg">${esc(s.gerekce||'')}</div>${(s.buyuk||[]).length?(()=>{const lim=AK_DG[String(s.tarih).slice(0,4)]||AK_DG[2026];const u=akDgUyari(s);const hz=s.buyuk.filter(b=>akDgTur(b)==='hizmet');const ml=s.buyuk.filter(b=>akDgTur(b)==='mal');
+  return `<div class="akv" style="font-size:12px;margin-top:6px;display:grid;gap:4px;${u?'color:#b42318':''}"><div><b>${n2(lim)} TL doğrudan gider sınırını aşan kalem:</b> ${s.buyuk.map(b=>esc(b.ad)+' '+n2(b.birim)+(akDgTur(b)==='hizmet'?' (hizmet)':'')).join(', ')}.</div>
+  ${ml.length?(akSk(s)?'<div>Sabit kıymet olarak işaretli; amortismanla gider yazılır.</div>':s.dgGider?`<div>Şef kararı: gider olarak kalıyor — ${esc(s.dgGider)} ${doc.onay?'':`<button class="ghost" data-akdgg="${i}">Geri al</button>`}</div>`:`<div>Mal niteliğinde görünüyor: demirbaş ise gider kayıt türünü Sabit Kıymet Alışı seçin. Gider olarak kalacaksa gerekçe yazın (ör. sarf malzemesi, parça değişimi, değer artırmayan onarım).</div>${doc.onay?'':`<div style="display:flex;gap:4px"><input data-akdgt="${i}" placeholder="Gider kalma gerekçesi" style="flex:1;min-width:0"><button class="ghost" data-akdg="${i}">Gider olarak kalsın</button></div>`}`):''}
+  ${hz.length?`<div class="muted" style="color:inherit">Hizmet niteliğinde görünüyor (bakım/onarım/servis): normalde gider. Varlığın değerini artırıyor ya da ömrünü uzatıyorsa aktifleştirilmeli; içeriği faturadan kontrol edin.</div>`:''}</div>`})():''}${akVergiHtml(s,i,!!doc.onay)}${(s.secenek||[]).length&&!doc.onay?`<div class="aksec">${s.secenek.map((o,q)=>`<button class="ghost" data-aks="${i}.${q}" title="Geçmişte ${o.n} kez">${esc(o.ad)} <span class="muted">(${o.n})</span></button>`).join('')}</div>`:''}</td>`:''}</tr>`).join('')}).join('');
+  return akFisPanel()+`<div class="panel" style="padding:14px;display:grid;gap:12px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label class="sm" for="aksec">Firma</label><select id="aksec">${ds.map(([id,d])=>`<option value="${id}" ${id===AK.sec?'selected':''}>${esc((S.firmalar[d.mid]||{ad:d.mid}).ad)}</option>`).join('')}</select>
+      <span class="chip ok">${say.oto} otomatik</span><span class="chip warn">${say.kontrol} kontrol</span><span class="chip ok">${say.sef} şef seçti</span><span class="chip ${say.bos?'bad':'ok'}">${say.bos} boş</span>${say.haric?`<span class="chip warn">${say.haric} aktarılmaz</span>`:''}
+      <label class="sm" for="akfk">Faaliyet kodu</label><input id="akfk" inputmode="numeric" maxlength="6" style="width:80px" value="${esc(f.faaliyetKodu||'')}" placeholder="6 hane">${/^\d{6}$/.test(String(f.faaliyetKodu||''))?'':'<span class="chip bad">faaliyet kodu yok</span>'}<span class="muted" style="font-size:12px">Hedef: Luca gider (Ser.Mes.Defteri) · Kaynak: ${esc(doc.kaynak||'')}</span></div>
+    <div class="note">Kod dolu gelen satırlar, satıcının geçmiş kayıtlarında tutarlı biçimde aynı türle kaydedildiği satırlar. Emin olunmayan satırlar boş bırakıldı: geçmişteki seçenekler yanında; birine tıklayın ya da listeden seçin. Boş satır kalmadan şef onayı verilemez.</div>
+    <div class="tblwrap"><table class="grid akt"><thead><tr><th>Fatura</th><th class="r">KDV</th><th class="r">Tutar</th><th class="r">KDV tutarı</th><th>Gider kayıt türü / alt türü</th><th>Durum</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="actions">${doc.onay?`<span class="chip ok">Şef onayı: ${esc(doc.onay.tarih)}${doc.onay.kim?' · '+esc(doc.onay.kim):''}</span><button data-akgeri="1">Onayı geri al</button>`:`<button class="pri" data-akonay="1" ${tamam?'':'disabled'}>Şef onayı ver</button>`}<button data-akxl="1" title="Kontrol listesi; Luca'ya yüklenmez">Kontrol listesi (Excel, Luca'ya yüklenmez)</button><button data-akluca3="1" ${doc.onay?'':'disabled'} title="Şef onayından sonra">Luca'ya yükle: deneme (ilk 3 belge)</button><button data-akluca="1" ${doc.onay?'':'disabled'} title="Şef onayından sonra">Luca'ya yükle: tüm belgeler</button>${doc.onay?'':'<span class="muted">Luca dosyası şef onayından sonra açılır.</span>'}${tamam?'':`<span class="muted">${say.bos} satır boş; onay için doldurun.</span>`}</div></div>`}
+async function akKaydet(patch){const doc=S.aktarim[AK.sec];const d={...doc,...patch};S.aktarim[AK.sec]=d;await setDoc('aktarim/'+AK.sec,d)}
+function akImza(s,imza){const parts=imza.split('+').map(p=>{const kdvli=!p.endsWith('*');const [ta,pay]=p.replace('*','').split(':');const [t,a]=ta.split('/');return{tur:t,alt:a,pay:+pay,kdvli}});
+  const kp=parts.filter(p=>p.kdvli).reduce((a,p)=>a+p.pay,0)||1;const r=n=>Math.round(n*100)/100;
+  return parts.map(p=>({tur:p.tur,alt:p.alt,tutar:r(s.matrah*p.pay),kdv:p.kdvli&&s.kdv!=null?r(s.kdv*p.pay/kp):0,manuel:true}))}
+async function akXl(){const doc=S.aktarim[AK.sec];if(!doc)return;if(!S.dl){toast('Bu görünümde dosya indirilemiyor');return}
+  const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet('Aktarım');
+  ws.columns=[['Durum',12],['Kayıt Tarihi',12],['Belge Tarihi',12],['Belge Türü Kodu',10],['Belge No',20],['VKN/TCKN',13],['Unvan',36],['Gider Kayıt Türü Kodu',8],['Gider Kayıt Türü',30],['Alt Tür Kodu',8],['Alt Tür',40],['Tutar',14],['KDV Oranı',8],['KDV',12],['Gerekçe',50]].map(([h,w])=>({header:h,width:w}));
+  ws.getRow(1).font={bold:true};
+  for(const s of doc.satirlar){const d=akDurum(s);const D={oto:'Otomatik',kontrol:'Kontrol',sef:'Şef seçti',bos:'BOŞ'}[d];const o=s.oran==='?'?((akAyrim(s)||{}).oran||'?'):s.oran;for(const k of akAnaKalemler(s)){ws.addRow([D,s.tarih,s.tarih,s.belgeTur||'',s.fatura,s.vkn,s.unvan,k.tur,akTurAd(k.tur),k.alt,akAltAd(k.tur,k.alt),k.tutar,o,k.kdv,s.gerekce||''])}const e=akEk(s);if(e)ws.addRow([D,s.tarih,s.tarih,s.belgeTur||'',s.fatura,s.vkn,s.unvan,e.tur,akTurAd(e.tur),e.alt,akAltAd(e.tur,e.alt),e.tutar,0,0,'KDV dışı vergi: '+e.tip])}
+  ws.getColumn(12).numFmt='#,##0.00';ws.getColumn(14).numFmt='#,##0.00';
+  const f=S.firmalar[doc.mid]||{ad:doc.mid};const ad=f.ad.replace(/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü ]+/g,'').trim().split(/\s+/).slice(0,2).join('_');
+  try{await S.dl.save({filename:`${ad}_KONTROL_LISTESI_Lucaya_yuklenmez_${kKey()}.xlsx`,data:await wb.xlsx.writeBuffer()});toast('Excel indirildi')}catch(e){if(e&&e.code==='declined')return;toast('Excel oluşturulamadı')}}
+const LUCA_BELGE={'1':'Fatura','2':'ÖKC Fişi','3':'Perakende Satış Fişi','4':'Serbest Meslek Makbuzu','5':'Gider Pusulası','6':'Müstahsil Makbuzu','8':'Diğer','9':'e-Fatura','10':'e-Arşiv Fatura','13':'e-Serbest Meslek Makbuzu','18':'e-Bilet','19':'Yolcu Taşıma Bileti','20':'e-Müstahsil Makbuzu','21':'Gümrük Beyannamesi'};
+const LUCA_HF=['İŞLEM','KATEGORİ','BELGE TÜRÜ','EVRAK TARİHİ','KAYIT TARİHİ','SERİ NO','EVRAK NO','TCKN/VKN','VERGİ DAİRESİ','SOYADI ÜNVAN','ADI DEVAMI','ADRES','CARİ HESAP','KDV İSTİSNASI','KOD','BELGE TÜRÜ(DB)','ALIŞ/SATIŞ TÜRÜ','KAYIT ALT TÜRÜ','PLAKA NO','MAL VE HİZMET KODU','AÇIKLAMA','MİKTAR','B.FİYAT','TUTAR','TEVKİFAT','KDV ORANI','İŞLEM BEDELİ','MATRAHTAN DÜŞÜLECEK TUTAR','ÖZEL MATRAH ŞEKLİNE DAHİL OLMAYAN BEDEL','KDV TUTARI','TOPLAM TUTAR','KREDİLİ TUTAR','STOPAJ KODU','STOPAJ TUTARI','DÖNEMSELLIK İLKESİ','FAALIYET KODU','ÖDEME TÜRÜ'];
+// Luca Hızlı Fiş "Excel Aktarım" aslında CSV okur: ';' ayraçlı, Windows-1254, 36 sütun (şablondaki PLAKA NO yok).
+// 03.11.2026'da Yakup Sait Çağlar ile denenerek bulundu: İŞLEM "Gider", ünvanda özel karakter yok, tarih gg/aa/yyyy, ondalık virgül.
+const LUCA_CSV=LUCA_HF.filter(h=>h!=='PLAKA NO');
+const AK_TRMAP={'Ç':0xC7,'Ğ':0xD0,'İ':0xDD,'Ö':0xD6,'Ş':0xDE,'Ü':0xDC,'ç':0xE7,'ğ':0xF0,'ı':0xFD,'ö':0xF6,'ş':0xFE,'ü':0xFC,'â':0xE2,'Â':0xC2,'î':0xEE,'û':0xFB};
+function akCp1254(str){const out=[];for(const ch of str){const c=ch.charCodeAt(0);if(c<128)out.push(c);else if(AK_TRMAP[ch]!=null)out.push(AK_TRMAP[ch]);else out.push(63)}return new Uint8Array(out)}
+const akAscii=t=>String(t||'').replace(/\(.*?\)/g,' ').replace(/[çÇğĞıİöÖşŞüÜâÂîÎûÛ]/g,c=>({ç:'c',Ç:'C',ğ:'g',Ğ:'G',ı:'i',İ:'I',ö:'o',Ö:'O',ş:'s',Ş:'S',ü:'u',Ü:'U',â:'a',Â:'A',î:'i',Î:'I',û:'u',Û:'U'}[c])).toUpperCase().replace(/[^A-Z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+function akUnvanBol(u){u=akAscii(u);if(u.length<=30)return[u,''];let k=u.lastIndexOf(' ',30);if(k<=0)k=30;return[u.slice(0,k).trim(),u.slice(k).trim()]}
+async function akLuca(deneme){const doc=S.aktarim[AK.sec];if(!doc)return;if(!/^\d{6}$/.test(String((S.firmalar[doc.mid]||{}).faaliyetKodu||''))){toast('Önce firmanın 6 haneli faaliyet kodunu girin (Aktarım sekmesi üstünde)');return}if(!doc.onay){toast('Luca aktarım dosyası şef onayından sonra alınabilir');return}if(!S.dl){toast('Bu görünümde dosya indirilemiyor');return}
+  const tr=d=>{const [y,m,g]=String(d).split('-');return g&&m&&y?`${g}/${m}/${y}`:d};const r2=n=>Math.round((+n||0)*100)/100;
+  const sayi=n=>n===''||n==null?'':r2(n).toFixed(2).replace('.',',');let say=0;const satir=[];
+  const kayitT=s=>String(s.tarih).slice(0,7)<(doc.donem||kKey())?tr((doc.donem||kKey())+'-01'):tr(s.tarih);
+  for(const s of doc.satirlar){if(s.lucada||s.haric)continue;if(deneme&&say>=3)break;say++;
+    const dbBel=LUCA_BELGE[s.belgeTur]||(/ARSIV/i.test(s.senaryo||'')?'e-Arşiv Fatura':/SMM/i.test(s.senaryo||'')?'e-Serbest Meslek Makbuzu':'e-Fatura');
+    const sk=s.kalemler.some(k=>String(k.tur)==='2');const [u1,u2]=akUnvanBol(s.unvan);
+    const temel={'İŞLEM':'Gider','KATEGORİ':(s.luca||{}).kategori||(sk?'Sabit Kıymet Fişleri':'Defter Fişleri'),'BELGE TÜRÜ':(s.luca||{}).belgeTuru||(sk?'Sabit Kıymet Alış KDV':'Diğer Alışlar'),'EVRAK TARİHİ':tr(s.tarih),'KAYIT TARİHİ':kayitT(s),'EVRAK NO':s.fatura,'TCKN/VKN':s.vkn,'SOYADI ÜNVAN':u1,'ADI DEVAMI':u2,'BELGE TÜRÜ(DB)':dbBel,'ALIŞ/SATIŞ TÜRÜ':'Normal Alım','MAL VE HİZMET KODU':'0','AÇIKLAMA':akAscii(s.unvan).slice(0,100),'MİKTAR':'0','B.FİYAT':'0','TEVKİFAT':'Yok','İŞLEM BEDELİ':'0','MATRAHTAN DÜŞÜLECEK TUTAR':'0','ÖZEL MATRAH ŞEKLİNE DAHİL OLMAYAN BEDEL':'0','FAALIYET KODU':String((S.firmalar[doc.mid]||{}).faaliyetKodu||'')};
+    const oran=s.oran==='?'?+((akAyrim(s)||{}).oran||0):+s.oran;
+    for(const k of akAnaKalemler(s)){const kdv=k.kdv==null?'':r2(k.kdv);satir.push({...temel,'KAYIT ALT TÜRÜ':k.alt?akAltAd(k.tur,k.alt):'','TUTAR':sayi(k.tutar),'KDV ORANI':String(k.kdv===0&&s.oran==='?'?0:oran),'KDV TUTARI':sayi(kdv),'TOPLAM TUTAR':kdv===''?'':sayi(k.tutar+kdv)})}
+    const e=akEk(s);if(e)satir.push({...temel,'KAYIT ALT TÜRÜ':e.alt?akAltAd(e.tur,e.alt):'','AÇIKLAMA':akAscii(s.unvan.slice(0,70)+' '+e.tip),'TUTAR':sayi(e.tutar),'KDV ORANI':'0','KDV TUTARI':'0,00','TOPLAM TUTAR':sayi(e.tutar)})}
+  const q=v=>{v=String(v??'');return /[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const metin=[LUCA_CSV.map(q).join(';'),...satir.map(r=>LUCA_CSV.map(h=>q(r[h])).join(';'))].join('\r\n')+'\r\n';
+  const f=S.firmalar[doc.mid]||{ad:doc.mid};const ad=akAscii(f.ad).split(' ').slice(0,2).join('_');
+  try{await S.dl.save({filename:`${ad}_Luca_hizli_fis_${kKey()}${deneme?'_DENEME_3':''}.csv`,data:akCp1254(metin)});toast('Luca CSV dosyası indirildi')}catch(e){if(e&&e.code==='declined')return;toast('Dosya oluşturulamadı')}}
+document.addEventListener('change',async e=>{const t=e.target;if(S.tab!=='aktarim')return;
+  if(t.id==='aksec'){AK.sec=t.value;render();return}
+  if(t.id==='akfk'){const doc0=S.aktarim[AK.sec];const v=t.value.replace(/\D/g,'');if(v&&v.length!==6){toast('Faaliyet kodu 6 haneli olmalı');return}await fSet(doc0.mid,{faaliyetKodu:v});toast('Faaliyet kodu kaydedildi');render();return}
+  const doc=S.aktarim[AK.sec];if(!doc||doc.onay)return;
+  if(t.dataset.akvo||t.dataset.akvk){const i=+(t.dataset.akvo||t.dataset.akvk);const ss=JSON.parse(JSON.stringify(doc.satirlar));const s=ss[i];
+    const box=t.closest('.akv');const oran=box.querySelector('[data-akvo]').value;let kdvS=box.querySelector('[data-akvk]').value.trim();let hes=false;
+    if(t.dataset.akvo||kdvS===''){if(s.vergi==null)return;const r=+oran/100;kdvS=String(akR2(r*(s.matrah+s.vergi)/(1+r))).replace('.',',');hes=true}
+    const kdv=akR2(kdvS.replace(/\./g,'').replace(',','.'));if(!(kdv>=0)){toast('KDV tutarını sayı olarak girin');return}
+    if(s.vergi!=null&&kdv>s.vergi+0.01){toast('KDV, faturadaki vergiler toplamından büyük olamaz');return}
+    s.ayrim={oran,kdv,hesap:hes};const ekK=s.kalemler.slice(1).find(k=>!k.kdv);if(ekK){s.ekTur=s.ekTur||ekK.tur;s.ekAlt=s.ekAlt||ekK.alt}s.kalemler=[{...s.kalemler[0],tutar:s.matrah,kdv,manuel:true}];
+    await akKaydet({satirlar:ss});await akKuralYaz(s);toast(hes?'KDV, diğer vergiler KDV matrahına dahil varsayımıyla hesaplandı; faturadan teyit edin':'KDV kaydedildi; bu satıcının diğer faturalarına da uygulanır');render();return}
+  if(t.dataset.akvt||t.dataset.akvr||t.dataset.akva){const i=+(t.dataset.akvt||t.dataset.akvr||t.dataset.akva);const ss=JSON.parse(JSON.stringify(doc.satirlar));const s=ss[i];const e=akEk(doc.satirlar[i])||{};
+    if(t.dataset.akvt){s.ekTip=t.value;const v=AK_EK_VARS[t.value];s.ekTur=e.tur||(v&&v.tur)||'';s.ekAlt=e.alt||(v&&v.alt)||''}
+    else if(t.dataset.akvr){s.ekTip=s.ekTip||e.tip||'';s.ekTur=t.value;s.ekAlt=''}else{s.ekTip=s.ekTip||e.tip||'';s.ekTur=s.ekTur||e.tur||'';s.ekAlt=t.value}
+    await akKaydet({satirlar:ss});await akKuralYaz(s);render();return}
+  if(t.dataset.akt||t.dataset.aka){const [i,j]=(t.dataset.akt||t.dataset.aka).split('.').map(Number);const ss=JSON.parse(JSON.stringify(doc.satirlar));const k=ss[i].kalemler[j];
+    if(t.dataset.akt){k.tur=t.value;k.alt=''}else k.alt=t.value;k.manuel=true;await akKaydet({satirlar:ss});render()}});
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||S.tab!=='aktarim')return;const d=b.dataset;const doc=S.aktarim[AK.sec];if(!doc)return;
+  if(d.aks){const [i,q]=d.aks.split('.').map(Number);const ss=JSON.parse(JSON.stringify(doc.satirlar));ss[i].kalemler=akImza(ss[i],ss[i].secenek[q].imza);await akKaydet({satirlar:ss});render();return}
+  if(d.akonay){if(doc.satirlar.some(s=>akDurum(s)==='bos')){toast('Boş satır varken onay verilemez');return}
+    const ogren={};for(const s of doc.satirlar)if(s.kalemler.some(k=>k.manuel)){const top=s.kalemler.reduce((a,k)=>a+(+k.tutar||0),0)||1;ogren[s.vkn+'|'+s.oran]=s.kalemler.map(k=>`${k.tur}/${k.alt}:${s.kalemler.length>1?Math.round(k.tutar/top*100)/100:1}${k.kdv||s.kdv==null?'':'*'}`).join('+')}
+    await akKaydet({onay:{tarih:today(),kim:(kDoc(doc.mid)||{}).hazirlayan||''},ogrenilen:ogren});toast('Onaylandı; şefin seçimleri şablona eklendi');render();return}
+  if(d.akdg||d.akdgg){const i=+(d.akdg||d.akdgg);const ss=JSON.parse(JSON.stringify(doc.satirlar));
+    if(d.akdg){const inp=document.querySelector(`[data-akdgt="${i}"]`);const g=(inp&&inp.value||'').trim();if(g.length<5){toast('Gider olarak kalma gerekçesini yazın');return}ss[i].dgGider=g.slice(0,200)}else delete ss[i].dgGider;
+    await akKaydet({satirlar:ss});render();return}
+  if(d.akgeri){await akKaydet({onay:null});render();return}
+  if(d.akxl){akXl();return}
+  if(d.akluca){akLuca();return}
+  if(d.akluca3){akLuca(true);return}});
+
+// ---------- Fiş fotoğrafı yükleme: ekip yükler, uygulamadaki Claude okur, Aktarım'a satır olarak düşer
+const AKF={mid:null,durum:'',calisiyor:false};
+const AKF_KAT={yemek:['3','9'],market:['3','9'],kirtasiye:['3','32'],kargo:['3','27'],taksi:['3','44']};
+function akFisPanel(){const fs=Object.entries(S.firmalar||{}).filter(([,f])=>f.durum!=='Pasif').sort((a,b)=>(a[1].sira||999)-(b[1].sira||999));
+  if(!AKF.mid){const d=S.aktarim[AK.sec];AKF.mid=d?d.mid:(fs[0]||[])[0]}
+  const ok=!!S.sample;
+  return `<div class="panel" style="padding:14px;display:grid;gap:8px;margin-bottom:12px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>Fiş / Z raporu fotoğrafı ekle</b>
+      <label class="sm" for="akfmid">Firma</label><select id="akfmid">${fs.map(([id,f])=>`<option value="${id}" ${id===AKF.mid?'selected':''}>${esc(f.ad)}</option>`).join('')}</select>
+      <input type="file" id="akfdosya" accept="image/*" multiple ${ok&&!AKF.calisiyor?'':'disabled'}>
+      <button class="pri" data-akfoku="1" ${ok&&!AKF.calisiyor?'':'disabled'}>Fotoğrafları oku ve ekle</button></div>
+    <div class="muted" style="font-size:12px">${ok?'Bir fotoğrafta birden fazla fiş olabilir. Claude her fişi okur; satıcı, VKN, tarih, fiş no, tutar ve KDV çıkarılır, bulgular işaretlenir ve satırlar bu dönemin Aktarım listesine eklenir. Fotoğraflar saklanmaz; fişlerin aslı dosyada kalır.':'Bu görünümde fotoğraf okunamıyor (claude.ai üzerinde açın).'}</div>
+    ${AKF.durum?`<div class="note">${esc(AKF.durum)}</div>`:''}</div>`}
+function akfPrompt(f){return `Sen bir Türk mali müşavirlik ofisinde fiş okuyan asistansın. Fotoğraftaki HER bir fişi/faturayı ayrı ayrı oku.
+Mükellef: ${f.ad} (TCKN/VKN: ${f.vkn||'bilinmiyor'}).
+Yalnızca JSON dizi döndür, açıklama yazma. Her eleman:
+{"tur":"okc_fis"|"e_arsiv"|"e_fatura_bilgi"|"avans_bilgi"|"perakende_satis_fisi"|"z_raporu"|"diger",
+"unvan":"satıcı ünvanı (fişte yazdığı gibi)","marka":"tabelada/üstte yazan isim veya null","vkn":"satıcı VKN/TCKN yalnız rakam veya null",
+"tarih":"YYYY-MM-DD","fis_no":"fiş no veya belge/fatura no","alici_vkn":"fişte müşteri VKN/TCKN yazıyorsa rakamları, yoksa null",
+"toplam":sayı,"kdv_toplam":sayı veya null,"kdv_dagilim":[{"oran":sayı,"matrah":sayı,"kdv":sayı}],
+"kalemler":[{"ad":"ürün","tutar":sayı,"oran":sayı veya null}],
+"kart_son4":"kartın son 4 hanesi veya null","kart_sahibi":"kartta isim yazıyorsa veya null",
+"mali_degeri_yok":true/false ("mali değeri yoktur" yazıyorsa true),"kdv_ayri_gosterilmis":true/false,
+"kategori":"yemek"|"market"|"akaryakit"|"otopark"|"kirtasiye"|"kargo"|"taksi"|"hediye"|"elektronik"|"giyim"|"spor"|"hizmet"|"diger",
+"okunamayan":["okunamayan alan adları"],"guven":"yuksek"|"orta"|"dusuk"}
+Tutarlar Türk biçimindeyse (1.344,00) sayıya çevir (1344.00). Tarihi fişteki gibi oku, tahmin etme; okunmuyorsa null yaz ve okunamayan'a ekle.`}
+function akfSatirlar(fis,f,donem,dosya,mevcut){const out=[];const lim=AK_DG[String(donem).slice(0,4)]||AK_DG[2026];const r2=n=>Math.round((+n||0)*100)/100;
+  const ogr={};for(const d of Object.values(S.aktarim||{}))if(d.mid===f._id&&d.ogrenilen)Object.assign(ogr,d.ogrenilen);
+  for(const x of (Array.isArray(fis)?fis:[])){if(!x||x.tur==='z_raporu')continue;
+    const vkn=String(x.vkn||'').replace(/\D/g,'');const top=r2(x.toplam);const dag=(x.kdv_dagilim||[]).filter(g=>g&&g.oran!=null);
+    const notlar=[];let haric=null;const al=String(x.alici_vkn||'').replace(/\D/g,'');
+    if(x.mali_degeri_yok||x.tur==='avans_bilgi'||x.tur==='e_fatura_bilgi'){if(x.tur==='e_fatura_bilgi'||(al&&f.vkn&&al===String(f.vkn)))haric='Bilgi fişi: asıl e-Fatura/e-Arşiv GİB listesinden gelir; fişten girilirse mükerrer olur.';else haric='Mali değeri olmayan belge (avans/bilgi fişi): asıl fatura gelince işlenir.'}
+    if(/^1{10,11}$/.test(al))haric='Nihai tüketiciye (11111111111) kesilmiş: mükellefin belgesi değil, gider ve KDV indirimi yapılamaz.';
+    else if(x.tur==='e_arsiv'&&al&&f.vkn&&al===String(f.vkn))haric='Mükellef adına e-Arşiv: GİB/Rahat listesinden gelir; fişten girilirse mükerrer olur.';
+    else if(al&&f.vkn&&al!==String(f.vkn)&&x.tur==='e_arsiv')notlar.push(`Alıcı VKN/TCKN ${al}, mükellefinkiyle (${f.vkn}) aynı değil.`);
+    const ay=String(x.tarih||'').slice(0,7);if(!x.tarih)notlar.push('Tarih okunamadı.');else if(ay<donem)notlar.push(`Önceki aya ait (${x.tarih}): Ekim'de indirilebilir; Evrak Tarihi fiş tarihi, Kayıt Tarihi dönem başı.`);else if(ay>donem)notlar.push(`Sonraki aya ait (${x.tarih}): bu döneme alınmamalı.`);
+    if(x.kart_sahibi)notlar.push(`Kart sahibi: ${x.kart_sahibi} — mükellefin harcaması mı, teyit edin.`);
+    if(x.kdv_ayri_gosterilmis===false||x.tur==='perakende_satis_fisi')notlar.push('KDV ayrıca gösterilmemiş: KDV indirilemez.');
+    if((x.okunamayan||[]).length)notlar.push('Okunamayan: '+x.okunamayan.join(', ')+'.');
+    if(x.guven==='dusuk')notlar.push('Fotoğraf net değil; tutarları fişten teyit edin.');
+    if(/hediye|spor|giyim|elektronik/.test(x.kategori||''))notlar.push(`Kategori: ${x.kategori} — işle ilgisi ve kime verildiği not edilmeli.`);
+    if(/akaryakit|otopark/.test(x.kategori||''))notlar.push('Binek araç gideri olabilir: plaka ve 70/30 kontrol edilmeli.');
+    const buyuk=(x.kalemler||[]).filter(k=>(+k.tutar||0)/(1+((+k.oran||0)/100))>lim).map(k=>({ad:String(k.ad||''),miktar:1,tutar:r2(k.tutar),birim:r2((+k.tutar||0)/(1+((+k.oran||0)/100)))}));
+    const gruplar=(x.kdv_ayri_gosterilmis===false||!dag.length)?[{oran:x.kdv_ayri_gosterilmis===false?0:'?',matrah:r2(top-(+x.kdv_toplam||0)),kdv:x.kdv_ayri_gosterilmis===false?0:(x.kdv_toplam!=null?r2(x.kdv_toplam):null)}]:dag.map(g=>({oran:+g.oran,matrah:r2(g.matrah!=null?g.matrah:(+g.kdv||0)*100/(+g.oran||1)),kdv:r2(g.kdv)}));
+    const no=String(x.fis_no||'').trim();const nz=v=>String(v||'').replace(/^0+/,'').replace(/\s.*$/,'');
+    const mukerrer=mevcut.find(m=>String(m.vkn)===vkn&&nz(m.fatura)===nz(no)&&String(m.tarih)===String(x.tarih||''));
+    for(const g of gruplar){const imza=ogr[vkn+'|'+g.oran];let kal=[{tur:'',alt:'',tutar:g.matrah,kdv:g.kdv}],durum='bos',ger='';
+      if(imza&&!imza.includes('+')){const [t,a]=imza.split(':')[0].split('/');kal=[{tur:t,alt:a,tutar:g.matrah,kdv:g.kdv}];durum='oto';ger='Bu satıcı önceki onaylı aylarda bu türle kaydedilmiş.'}
+      else if(AKF_KAT[x.kategori]&&/^69/.test(String(f.faaliyetKodu||''))){const [t,a]=AKF_KAT[x.kategori];kal=[{tur:t,alt:a,tutar:g.matrah,kdv:g.kdv}];durum='kontrol';ger=`Kategori (${x.kategori}) üzerinden önerildi; şef teyit etsin.`}
+      out.push({fatura:no||'?',tarih:x.tarih||'',vkn,unvan:String(x.unvan||x.marka||'?')+(x.marka&&x.unvan&&x.marka!==x.unvan?` (${x.marka})`:''),senaryo:x.tur==='e_arsiv'?'e-Arşiv':x.tur==='perakende_satis_fisi'?'Perakende satış fişi':'ÖKC fişi',belgeTur:x.tur==='e_arsiv'?'10':x.tur==='perakende_satis_fisi'?'3':'2',oran:String(g.oran),matrah:g.matrah,kdv:g.kdv,vergi:null,durum:mukerrer?'bos':durum,gerekce:[mukerrer?'MÜKERRER: aynı fiş listede zaten var.':'',haric||'',haric?'':ger,...notlar].filter(Boolean).join(' '),kalemler:kal,secenek:[],kaynak:'fiş fotoğrafı: '+dosya,toplamFis:top,kart:x.kart_son4||null,...(buyuk.length?{buyuk}:{}),...(haric?{haric:haric.split(':')[0]}:{}),...(mukerrer?{haric:'Mükerrer fiş'}:{})})}}
+  return out}
+document.addEventListener('change',e=>{if(e.target.id==='akfmid'){AKF.mid=e.target.value}});
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-akfoku]');if(!b||S.tab!=='aktarim')return;
+  const inp=document.getElementById('akfdosya');const files=[...(inp&&inp.files||[])];if(!files.length){toast('Önce fotoğrafları seçin');return}
+  if(!S.sample){toast('Bu görünümde fotoğraf okunamıyor');return}
+  const lim=await S.sample.limits().catch(()=>null);if(!lim||!lim.images){toast('Bu görünümde fotoğraf okunamıyor');return}
+  const mid=AKF.mid;const f={...(S.firmalar[mid]||{}),_id:mid};const donem=kKey();const id=donem+'_'+mid;
+  AKF.calisiyor=true;const yeni=[];const hata=[];
+  for(let i=0;i<files.length;i++){const fl=files[i];AKF.durum=`Claude ${i+1}/${files.length}. fotoğrafı okuyor (${fl.name})… Fotoğraf başına 20-60 saniye sürebilir.`;render();
+    if(fl.size>lim.images.maxInputBytes){hata.push(fl.name+' (dosya çok büyük)');continue}
+    try{const fis=await S.sample.json(akfPrompt(f),{images:[fl],modelTier:'complex',cache:false});const mevcut=[...((S.aktarim[id]||{}).satirlar||[]),...yeni];yeni.push(...akfSatirlar(fis,f,donem,fl.name,mevcut))}
+    catch(err){if(err&&err.code==='not_granted'){hata.push('izin verilmedi');break}hata.push(fl.name+(err&&err.code?' ('+err.code+')':''))}}
+  if(yeni.length){const d=S.aktarim[id]||{donem,mid,hedef:'Luca gider (Ser.Mes.Defteri)',kaynak:'Fiş fotoğrafları',olusturma:today(),satirlar:[]};
+    const ss=[...(d.satirlar||[]),...yeni].map((r,k)=>({...r,id:k}));const nd={...d,satirlar:ss,onay:null};S.aktarim[id]=nd;try{await setDoc('aktarim/'+id,nd);AK.sec=id}catch(err){}}
+  const h=yeni.filter(r=>r.haric).length;
+  AKF.durum=`${files.length} fotoğraftan ${yeni.length} satır eklendi${h?` (${h} tanesi "aktarılmaz" olarak işaretlendi)`:''}.${hata.length?' Okunamayan: '+hata.join(', ')+'.':''}${yeni.length?' Mevcut şef onayı varsa kaldırıldı; satırları kontrol edip yeniden onaylayın.':''}`;
+  AKF.calisiyor=false;if(inp)inp.value='';render()});
+
+const dosyaMi=e=>{const t=e.dataTransfer&&e.dataTransfer.types;return !!t&&[...t].includes('Files')};
+let surDerin=0;const surBitir=()=>{surDerin=0;const z=$('#drop');if(z)z.classList.remove('over')};
+window.addEventListener('dragenter',e=>{if(!dosyaMi(e))return;e.preventDefault();surDerin++;const z=$('#drop');if(z)z.classList.add('over')});
+window.addEventListener('dragover',e=>{if(!dosyaMi(e))return;e.preventDefault();try{e.dataTransfer.dropEffect='copy'}catch{}});
+window.addEventListener('dragleave',e=>{if(!dosyaMi(e))return;if(--surDerin<=0)surBitir()});
+window.addEventListener('drop',e=>{if(!dosyaMi(e))return;e.preventDefault();surBitir();const fs=[...e.dataTransfer.files];if(!fs.length)return;
+  if(S.tab!=='kontrol'||!S.sec){toast('Önce Kontrol sekmesinde firmayı açın, sonra dosyaları bırakın');return}dosyalarEkle(fs)});
+
+{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);S.donem=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`}
+render();
+(async()=>{const c=window.claude;if(!c||!c.use){$('#main').innerHTML='<div class="panel empty">Bu sayfa claude.ai üzerinde açıldığında kontrol kayıtlarına bağlanır.</div>';$('#sub').textContent='Bağlantı yok';return}
+  const [db,dl,sm]=await Promise.all([c.use('db'),c.use('downloads'),c.use('sample')]);S.dl=dl;S.sample=sm;
+  if(!db){$('#main').innerHTML='<div class="panel empty">Kayıtlara bağlanılamadı. claude.ai\'de oturum açıkken sayfayı yeniden açın.</div>';$('#sub').textContent='Bağlantı yok';return}
+  S.db=db;const seen=new Set();
+  const sub=(col)=>db.collection(col).onSnapshot(snap=>{const o={};snap.docs.forEach(d=>o[d.id]=d.data());S[col]=o;if(!seen.has(col)){seen.add(col);S.ready++}render()},err=>toast('Bağlantı kesildi: '+err.code));
+  sub('firmalar');sub('kontroller');sub('aktarim');sub('sablonlar');
+})();
+})();
+</script>

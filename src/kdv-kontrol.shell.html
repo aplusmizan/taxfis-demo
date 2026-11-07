@@ -1,0 +1,269 @@
+<title>Plusmizan KDV Kontrol</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+/* Layout: kontrol defteri — üstte dönem özeti ve süzgeç, açık firmanın bulgu kâğıdı, altta firma cetveli */
+:root{
+  --bg:#f3f4f8; --surface:#ffffff; --sunk:#e9ebf3; --line:#d4d7e5; --fg:#181a2e; --muted:#5e6280;
+  --accent:#2e3175; --accent-fg:#ffffff; --accent-soft:#e3e4f3;
+  --warn:#a15c00; --warn-soft:#fbecd3; --bad:#b3261e; --bad-soft:#f8dcd8; --ok:#1e7a3c; --ok-soft:#dcf0e2;
+  --f-ui:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11121c; --surface:#191b29; --sunk:#202335; --line:#2f3248; --fg:#e6e7f1; --muted:#9a9db8;
+  --accent:#a2a6ee; --accent-fg:#11132e; --accent-soft:#272a4d;
+  --warn:#e5a34a; --warn-soft:#3a2c14; --bad:#f08a80; --bad-soft:#3d1d1a; --ok:#6fcf8f; --ok-soft:#173222; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11121c; --surface:#191b29; --sunk:#202335; --line:#2f3248; --fg:#e6e7f1; --muted:#9a9db8;
+  --accent:#a2a6ee; --accent-fg:#11132e; --accent-soft:#272a4d;
+  --warn:#e5a34a; --warn-soft:#3a2c14; --bad:#f08a80; --bad-soft:#3d1d1a; --ok:#6fcf8f; --ok-soft:#173222; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;margin-bottom:12px}
+.brand{display:flex;flex-direction:column;margin-right:auto}
+.brand b{font-size:20px;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:12.5px}
+label.sm,.sm{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+select,input,button{font:inherit;color:inherit}
+select,input[type=text],input[type=month],input[type=search]{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 9px;min-width:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:600;white-space:nowrap}
+button:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:4px 8px}
+button.ghost:hover{color:var(--bad)}
+button:disabled{opacity:.5;cursor:not-allowed}
+nav.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+nav.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);padding:9px 14px}
+nav.tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent)}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.stack{display:grid;gap:16px}
+.stat{display:flex;flex-wrap:wrap;gap:14px 28px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.stat div{display:flex;flex-direction:column}
+.stat b{font-family:var(--f-num);font-size:20px;font-weight:600}
+.stat .bad b{color:var(--bad)}.stat .warn b{color:var(--warn)}.stat .ok b{color:var(--ok)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px}
+.seg{display:flex;flex-wrap:wrap;gap:2px}
+.seg button{padding:4px 9px;font-size:12px;border-radius:4px}
+.seg button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+table.grid{font-size:13px}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+table.grid th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--sunk);position:sticky;top:0;white-space:nowrap}
+table.grid .r{text-align:right}table.grid .c{text-align:center}
+table.grid td.name{min-width:220px}
+table.grid tr.sel td{background:var(--accent-soft)}
+table.grid tr.done td{color:var(--muted)}table.grid tr.done td.name{text-decoration:line-through}
+.link{background:transparent;border:0;padding:0;font-weight:600;color:var(--fg);text-align:left;white-space:normal;cursor:pointer}
+.link:hover{color:var(--accent);text-decoration:underline}
+.sheet{padding:16px;display:grid;gap:14px;border-top:4px solid var(--accent);border-radius:8px}
+.sheethead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
+.sheethead h2{margin:0;font-size:17px;text-wrap:balance}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.form{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.form .f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.form .grow{flex:1 1 240px}
+.checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+.checks label{display:flex;gap:5px;align-items:center}
+.note{padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;padding:12px 16px 16px}
+.empty{padding:36px 20px;text-align:center;color:var(--muted)}
+h3{font-size:14px;margin:0}
+.toast{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:6px;font-weight:600;z-index:20;max-width:min(420px,calc(100vw - 32px))}
+.up{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)}
+.drop{position:relative;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;padding:22px 16px;border:2px dashed var(--line);border-radius:8px;background:var(--surface);cursor:pointer;text-align:center}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.drop:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.ozgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px}
+.ozgrid .f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ozgrid input{text-align:right;font-family:var(--f-num)}
+.akt select{display:block;width:100%;max-width:340px;font-size:12px;margin:2px 0}
+.akt td{vertical-align:top}.akt tr.bos td{background:var(--bad-soft)}.akt tr.kontrol td{background:var(--warn-soft)}
+.akg{font-size:11.5px;margin-top:4px;max-width:260px}.aksec{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.aksec button{font-size:11px;padding:2px 6px;text-align:left}
+.paket{display:grid;gap:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px 12px}
+.paketbas{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.pk{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+.pk:first-of-type{border-top:0}
+.pki{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:var(--sunk);color:var(--muted)}
+.pk.var .pki{background:var(--ok-soft);color:var(--ok)}.pk.eksik .pki{background:var(--warn-soft);color:var(--warn)}
+.pk.ay .pkl,.pk.firma .pkl{color:var(--muted)}
+.pks{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.pks button{font-size:12px;padding:3px 8px}
+@media (max-width:560px){.pk{grid-template-columns:20px 1fr}.pks{grid-column:2;justify-content:flex-start}}
+.note.err{background:var(--warn-soft);color:var(--warn)}
+.note.okn{background:var(--ok-soft);color:var(--ok)}
+.sonuc{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:8px}
+table.ktab td,table.ktab th{padding:5px 7px;white-space:nowrap}
+table.ktab td.name{min-width:200px;white-space:normal}
+table.ktab tr.par td{font-weight:600;background:var(--sunk)}
+table.ktab td.src{color:var(--accent)}
+td.kfark{background:var(--bad-soft);color:var(--bad);font-weight:600}
+ol.notlar{margin:0;padding-left:20px;display:grid;gap:6px;max-width:110ch}
+.posin{background:var(--warn-soft)!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>Plusmizan · KDV-1 Kontrol</b><span id="sub">Bağlanıyor…</span></div>
+    <div class="form"><div class="f"><label class="sm" for="donem">Beyan dönemi</label><input type="month" id="donem"></div></div>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="kontrol" aria-selected="true">Kontrol <span id="rozet"></span></button>
+    <button role="tab" data-tab="aktarim">Aktarım</button>
+    <button role="tab" data-tab="analiz">Hata analizi</button>
+    <button role="tab" data-tab="firmalar">Firmalar</button>
+  </nav>
+  <main id="main"><div class="panel empty">Kontrol kayıtları yükleniyor. Her firma için kontrol sonucu, açık bulgular ve şef onayı burada görünecek.</div></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const DUR={bekliyor:['Kontrol bekliyor',''],bulgu:['Açık bulgu var','bad'],temiz:['Temiz','ok'],onay:['Şef onayladı','ok']};
+const SIRA={bulgu:0,bekliyor:1,temiz:2,onay:3};
+const KAT=['Mizan–beyan farkı','Satış / e-Arşiv','Alış / e-Fatura','e-SMM','Z raporu','POS / kredi kartı','Tevkifat / KDV-2','İndirim kısıtı (KKEG)','Devreden KDV','İptal / mükerrer','Diğer'];
+const KAY=[['beyan','Beyanname'],['mizan','Mizan'],['defter','Defter'],['muavin','Muavin'],['ayrim','KDV ayrım'],['earsiv','e-Arşiv / e-Fatura'],['esmm','e-SMM'],['pusula','Gider pusulası'],['z','Z raporu'],['pos','POS']];
+const OZ=[['hesaplanan','Hesaplanan KDV'],['indirimler','İndirimler toplamı'],['devredenOnceki','Önceki dönemden devreden'],['odenecek','Ödenecek KDV'],['sonrakiDevreden','Sonraki döneme devreden'],['krediKarti','Kredi kartı satırı'],['pos','GİB POS toplamı']];
+const S={db:null,dl:null,firmalar:{},kontroller:{},aktarim:{},sablonlar:{},ready:0,tab:'kontrol',donem:null,sec:null,f:'hepsi',q:''};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2=n=>Math.round((+n||0)*100)/100;
+const tl=n=>(+n||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const parseTL=v=>{let s=String(v||'').trim().replace(/\s|TL/gi,'');if(!s)return 0;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=parseFloat(s);return isNaN(n)?0:n};
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today=()=>iso(new Date());
+const trDate=s=>{if(!s)return '';const [y,m,d]=s.split('-');return `${d}.${m}.${y}`};
+const norm=s=>String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').normalize('NFD').replace(/[̀-ͯ]/g,'');
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>e.hidden=true,3000)}
+const kKey=()=>S.donem.replace('/','-');
+const kId=mid=>kKey()+'_'+mid;
+const kDoc=mid=>S.kontroller[kId(mid)];
+const firmalar=()=>Object.entries(S.firmalar).sort((a,b)=>(a[1].sira||0)-(b[1].sira||0)||a[1].ad.localeCompare(b[1].ad,'tr'));
+const kFirmalar=()=>firmalar().filter(([,f])=>f.kdv1&&f.durum!=='Kapalı');
+function acik(k){const b=(k&&k.bulgular)||[];return{r:b.filter(x=>!x.duzeltildi&&x.seviye==='kirmizi').length,s:b.filter(x=>!x.duzeltildi&&x.seviye!=='kirmizi').length}}
+function durum(k){if(!k||!k.kontrolTarihi)return 'bekliyor';const a=acik(k);if(a.r||a.s)return 'bulgu';if(k.durum==='onay')return 'onay';return 'temiz'}
+async function setDoc(path,data){try{await S.db.doc(path).set(data)}catch(e){toast(e.code==='permission_denied'||e.code==='not_granted'?'Bu sayfada değişiklik yetkiniz yok':'Kaydedilemedi: '+(e.code||e.message));throw e}}
+async function kSet(mid,patch){const id=kId(mid);const d={mid,donem:S.donem,...(S.kontroller[id]||{}),...patch};S.kontroller[id]=d;await setDoc('kontroller/'+id,d)}
+async function fSet(mid,patch){const d={...(S.firmalar[mid]||{}),...patch};S.firmalar[mid]=d;await setDoc('firmalar/'+mid,d)}
+
+function render(){
+  $('#donem').value=S.donem.replace('/','-');
+  const fs=kFirmalar();const red=fs.reduce((a,[id])=>a+acik(kDoc(id)).r,0);
+  $('#rozet').innerHTML=red?`<span class="chip bad">${red}</span>`:'';
+  $('#sub').textContent=`${S.donem} dönemi · ${fs.length} KDV-1 mükellefi`;
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===S.tab));
+  if(S.ready<2)return;
+  $('#main').innerHTML={kontrol:vKontrol,aktarim:vAktarim,analiz:vAnaliz,firmalar:vFirmalar}[S.tab]();
+}
+function vKontrol(){
+  const fs=kFirmalar();
+  if(!fs.length)return `<div class="panel empty">KDV-1 veren firma tanımlı değil. <b>Firmalar</b> sekmesinden işaretleyin.</div>`;
+  const n={bekliyor:0,bulgu:0,temiz:0,onay:0};let aR=0,aS=0;
+  let rows=fs.map(([id,f])=>{const k=kDoc(id);const du=durum(k);n[du]++;const a=acik(k);aR+=a.r;aS+=a.s;return{id,f,k,du,a}});
+  rows=rows.filter(x=>(S.f==='hepsi'||x.du===S.f)&&(!S.q||norm(x.f.ad).includes(norm(S.q)))).sort((x,y)=>(SIRA[x.du]-SIRA[y.du])||(y.a.r-x.a.r)||(y.a.s-x.a.s));
+  if(S.sec&&!fs.some(([id])=>id===S.sec))S.sec=null;
+  const fb=(k,l,c)=>`<button data-f="${k}" aria-pressed="${S.f===k}">${l} <span class="num">${c}</span></button>`;
+  const tr=rows.map(x=>{const [lab,cls]=DUR[x.du];const kay=(x.k&&x.k.kaynaklar)||{};const eks=x.k?KAY.filter(([c])=>!kay[c]).length:null;
+    return `<tr${x.id===S.sec?' class="sel"':''}><td class="name"><button class="link" data-sec="${x.id}">${esc(x.f.ad)}</button></td><td>${esc(x.k?.hazirlayan||'—')}</td><td><span class="chip ${cls}">${lab}</span></td><td>${x.a.r?`<span class="chip bad">${x.a.r} kırmızı</span> `:''}${x.a.s?`<span class="chip warn">${x.a.s} sarı</span>`:''}${!x.a.r&&!x.a.s?'<span class="muted">—</span>':''}</td><td class="num">${trDate(x.k?.kontrolTarihi)||'—'}</td><td>${eks==null?'<span class="muted">—</span>':eks?`<span class="chip">${KAY.length-eks}/${KAY.length} kaynak</span>`:'<span class="chip ok">tüm kaynaklar</span>'}</td></tr>`}).join('');
+  return `<div class="stack"><div class="panel"><div class="stat">
+    <div class="bad"><span class="muted">Açık kırmızı bulgu</span><b>${aR}</b></div>
+    <div class="warn"><span class="muted">Açık sarı bulgu</span><b>${aS}</b></div>
+    <div><span class="muted">Kontrol bekliyor</span><b>${n.bekliyor}</b></div>
+    <div class="ok"><span class="muted">Temiz veya onaylı</span><b>${n.temiz+n.onay}</b></div>
+    <div><span class="muted">KDV-1 mükellefi</span><b>${fs.length}</b></div></div>
+    <div class="bar"><div class="seg" role="group" aria-label="Duruma göre süz">${fb('hepsi','Tümü',fs.length)}${fb('bulgu','Bulgu var',n.bulgu)}${fb('bekliyor','Bekliyor',n.bekliyor)}${fb('temiz','Temiz',n.temiz)}${fb('onay','Onaylı',n.onay)}</div>
+    <input type="search" id="q" placeholder="Firma ara" value="${esc(S.q)}" aria-label="Firma ara" style="flex:1 1 180px"><button data-xl="1">Bulguları Excel'e aktar</button></div></div>
+  ${S.sec?vDetay(S.sec):''}
+  <div class="panel"><div class="tblwrap" style="max-height:64vh"><table class="grid"><thead><tr><th>Firma</th><th>Hazırlayan</th><th>Durum</th><th>Açık bulgu</th><th>Son kontrol</th><th>Kaynaklar</th></tr></thead><tbody>${tr||'<tr><td colspan="6" class="empty">Bu süzgece uyan firma yok.</td></tr>'}</tbody></table></div></div></div>`}
+function vDetay(mid){const f=S.firmalar[mid];const k=kDoc(mid)||{};const du=durum(kDoc(mid));const [lab,cls]=DUR[du];const b=k.bulgular||[];const kay=k.kaynaklar||{};const oz=k.ozet||{};const a=acik(k);
+  const ozH=OZ.filter(([c])=>oz[c]!=null).map(([c,l])=>`<div><span class="muted">${l}</span><b style="font-size:16px">${tl(oz[c])}</b></div>`).join('');
+  const bH=b.map((x,i)=>`<tr class="${x.duzeltildi?'done':''}"><td class="c"><input type="checkbox" id="duz_${i}" data-duz="${i}" ${x.duzeltildi?'checked':''} aria-label="Düzeltildi"></td><td><span class="chip ${x.seviye==='kirmizi'?'bad':'warn'}">${x.seviye==='kirmizi'?'Kırmızı':'Sarı'}</span></td><td>${esc(x.kategori||'')}</td><td class="name">${esc(x.aciklama||'')}${x.oneri?`<div class="muted" style="font-size:12px;margin-top:2px">Yapılacak: ${esc(x.oneri)}</div>`:''}</td><td class="r num">${x.tutar?tl(x.tutar):''}</td><td><button class="ghost" data-sil="${i}" aria-label="Bulguyu sil">✕</button></td></tr>`).join('');
+  return `<div class="panel sheet">
+  <div class="sheethead"><div><h2>${esc(f.ad)}</h2><div class="muted">${esc(S.donem)} KDV-1 · <span class="chip ${cls}">${lab}</span>${k.durum==='onay'&&k.onayTarihi?` · onay ${trDate(k.onayTarihi)}`:''}</div></div>
+  <div class="actions"><button class="${k.durum==='onay'?'':'pri'}" data-onay="1" ${k.durum!=='onay'&&!k.kontrolTarihi?'disabled title="Önce kontrolü çalıştırın"':a.r||a.s?'disabled title="Önce açık bulguları kapatın"':''}>${k.durum==='onay'?'Onayı geri al':'Şef onayı ver'}</button><button data-sec="">Kapat</button></div></div>
+  <div class="form"><div class="f"><label class="sm" for="haz">Hazırlayan</label><input type="text" id="haz" value="${esc(k.hazirlayan||'')}" placeholder="Beyannameyi hazırlayan"></div>
+  <div class="f grow"><span class="sm">Kontrole giren kaynaklar</span><div class="checks">${KAY.map(([c,l])=>`<label><input type="checkbox" id="kay_${c}" data-kay="${c}" ${kay[c]?'checked':''}> ${l}</label>`).join('')}</div></div></div>
+  ${vYukle(mid)}
+  ${k.not?`<div class="note">${esc(k.not)}</div>`:''}
+  <div class="tblwrap"><table class="grid"><thead><tr><th class="c">Düzeltildi</th><th>Seviye</th><th>Kategori</th><th>Bulgu</th><th class="r">Tutar</th><th></th></tr></thead><tbody>${bH||'<tr><td colspan="6" class="empty">Bulgu yok.</td></tr>'}</tbody></table></div>
+  <form id="bForm" class="form"><div class="f"><label class="sm" for="sev">Seviye</label><select id="sev"><option value="kirmizi">Kırmızı</option><option value="sari">Sarı</option></select></div>
+  <div class="f"><label class="sm" for="kat">Kategori</label><select id="kat">${KAT.map(c=>`<option>${c}</option>`).join('')}</select></div>
+  <div class="f grow"><label class="sm" for="acik">Bulgu</label><input type="text" id="acik" placeholder="Ne yanlış, hangi belgede"></div>
+  <div class="f"><label class="sm" for="tutar">Tutar</label><input type="text" id="tutar" inputmode="decimal" placeholder="0,00" style="width:120px"></div>
+  <button class="pri" type="submit">Bulgu ekle</button><button type="button" data-temiz="1">Kontrol edildi, bulgu yok</button></form>${vSonuc(mid)}</div>`}
+function vAnaliz(){const hz={},kt={};let top=0;const ks=Object.values(S.kontroller);
+  if(!ks.length)return `<div class="panel empty">Henüz kontrol kaydı yok. İlk kontroller girildikçe hangi hazırlayanın hangi konuda hata yaptığı burada sayıyla görünür.</div>`;
+  for(const k of ks){const h=k.hazirlayan||'Belirtilmemiş';hz[h]=hz[h]||{k:0,b:0,r:0,a:0};hz[h].k++;for(const x of k.bulgular||[]){top++;hz[h].b++;if(x.seviye==='kirmizi')hz[h].r++;if(!x.duzeltildi)hz[h].a++;const c=x.kategori||'Diğer';kt[c]=(kt[c]||0)+1}}
+  const hR=Object.entries(hz).sort((a,b)=>b[1].b-a[1].b).map(([h,v])=>`<tr><td>${esc(h)}</td><td class="r num">${v.k}</td><td class="r num">${v.b}</td><td class="r num">${v.r}</td><td class="r num">${(v.b/v.k).toFixed(1).replace('.',',')}</td><td class="r num">${v.a}</td></tr>`).join('');
+  const kR=Object.entries(kt).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td class="r num">${v}</td><td class="r num">%${Math.round(v*100/top)}</td></tr>`).join('');
+  return `<div class="panel"><div style="padding:16px 16px 0;display:grid;gap:4px"><h3>Tüm dönemler</h3><p class="muted" style="margin:0">Bulgular beyannameyi hazırlayana yazılır. En çok tekrar eden kategori, ilk eğitim konusudur.</p></div>
+  <div class="duo"><div class="tblwrap"><table class="grid"><thead><tr><th>Hazırlayan</th><th class="r">Kontrol</th><th class="r">Bulgu</th><th class="r">Kırmızı</th><th class="r">Kontrol başı</th><th class="r">Açık</th></tr></thead><tbody>${hR}</tbody></table></div>
+  <div class="tblwrap"><table class="grid"><thead><tr><th>Kategori</th><th class="r">Bulgu</th><th class="r">Pay</th></tr></thead><tbody>${kR||'<tr><td colspan="3" class="muted">Henüz bulgu yok</td></tr>'}</tbody></table></div></div></div>`}
+function vFirmalar(){const fs=firmalar();
+  const tr=fs.map(([id,f])=>`<tr><td class="name">${esc(f.ad)}</td><td>${esc(f.tur||'')}</td><td class="c"><input type="checkbox" id="kdv_${id}" data-kdv="${id}" ${f.kdv1?'checked':''} aria-label="KDV-1 veriyor"></td><td><select id="dur_${id}" data-dur="${id}" aria-label="Durum"><option ${f.durum!=='Kapalı'?'selected':''}>Aktif</option><option ${f.durum==='Kapalı'?'selected':''}>Kapalı</option></select></td></tr>`).join('');
+  return `<div class="stack"><div class="panel"><form id="fForm" class="form" style="padding:14px 16px"><div class="f grow"><label class="sm" for="fAd">Yeni firma unvanı</label><input type="text" id="fAd"></div><div class="f"><label class="sm" for="fTur">Tür</label><select id="fTur"><option>LMT</option><option>AŞ</option><option>GRÇ</option></select></div><button class="pri" type="submit">Firma ekle</button></form></div>
+  <div class="panel"><div class="tblwrap" style="max-height:70vh"><table class="grid"><thead><tr><th>Firma</th><th>Tür</th><th class="c">KDV-1</th><th>Durum</th></tr></thead><tbody>${tr||'<tr><td colspan="4" class="empty">Firma yok.</td></tr>'}</tbody></table></div></div></div>`}
+async function excel(){if(!window.XLSX){toast('Excel kütüphanesi yüklenemedi');return}
+  const aoa=[['Firma','Dönem','Hazırlayan','Durum','Seviye','Kategori','Bulgu','Yapılacak','Tutar','Düzeltildi']];
+  for(const [id,f] of kFirmalar()){const k=kDoc(id);if(!k)continue;const du=DUR[durum(k)][0];const b=k.bulgular||[];if(!b.length)aoa.push([f.ad,S.donem,k.hazirlayan||'',du,'','','','','','']);for(const x of b)aoa.push([f.ad,S.donem,k.hazirlayan||'',du,x.seviye==='kirmizi'?'Kırmızı':'Sarı',x.kategori||'',x.aciklama||'',x.oneri||'',x.tutar||'',x.duzeltildi?'Evet':'Hayır'])}
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:45},{wch:9},{wch:16},{wch:16},{wch:9},{wch:22},{wch:60},{wch:40},{wch:14},{wch:10}];XLSX.utils.book_append_sheet(wb,ws,'KDV-1 Bulgular');
+  if(!S.dl){toast('Bu görünümde dosya indirilemiyor');return}
+  try{await S.dl.save({filename:`KDV1_Kontrol_${kKey()}.xlsx`,data:XLSX.write(wb,{bookType:'xlsx',type:'array'})});toast('İndirildi')}catch(e){if(e.code!=='declined')toast('İndirilemedi')}}
+
+document.addEventListener('click',async e=>{const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+  if(d.tab){S.tab=d.tab;render();return}
+  if(d.f){S.f=d.f;render();return}
+  if(d.sec!=null){S.sec=d.sec||null;render();if(S.sec)window.scrollTo({top:0,behavior:'smooth'});return}
+  if(d.onay){const k=kDoc(S.sec)||{};const on=k.durum!=='onay';if(on&&!k.kontrolTarihi){toast('Kontrol yapılmadan onay verilemez');return}if(on&&!(k.paket&&k.paket.sonraki==='var')){toast('Sonraki ay GİB sorgusu onaylanmadan şef onayı verilemez. Dosya paketinden onaylayıp kontrolü yeniden çalıştırın.');return}await kSet(S.sec,{durum:on?'onay':'',onayTarihi:on?today():''});toast(on?'Onaylandı':'Onay geri alındı');render();return}
+  if(d.temiz){const kk=kDoc(S.sec)||{};if(!kk.tablo||!kk.paket){toast('Önce dosya paketini yükleyip kontrolü çalıştırın');return}await kSet(S.sec,{kontrolTarihi:today()});toast('Kontrol edildi olarak işlendi');render();return}
+  if(d.sil!=null){const b=[...(kDoc(S.sec)?.bulgular||[])];b.splice(+d.sil,1);await kSet(S.sec,{bulgular:b});toast('Bulgu silindi');render();return}
+  if(d.xl){excel();return}});
+document.addEventListener('change',async e=>{const t=e.target;const d=t.dataset;
+  if(t.id==='donem'){if(t.value){S.donem=t.value.replace('-','/');S.sec=null;render()}return}
+  if(d.duz!=null){const b=[...(kDoc(S.sec)?.bulgular||[])];const i=+d.duz;b[i]={...b[i],duzeltildi:t.checked,duzTarih:t.checked?today():''};await kSet(S.sec,{bulgular:b});render();return}
+  if(t.id==='haz'){await kSet(S.sec,{hazirlayan:t.value.trim()});toast('Kaydedildi');render();return}
+  if(d.kay){const kay={...(kDoc(S.sec)?.kaynaklar||{}),[d.kay]:t.checked};await kSet(S.sec,{kaynaklar:kay});render();return}
+  if(d.kdv){await fSet(d.kdv,{kdv1:t.checked});toast('Kaydedildi');return}
+  if(d.dur){await fSet(d.dur,{durum:t.value});toast('Kaydedildi');return}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;const p=e.target.selectionStart;render();const q=$('#q');if(q){q.focus();q.setSelectionRange(p,p)}}});
+document.addEventListener('submit',async e=>{e.preventDefault();const f=e.target;
+  if(f.id==='bForm'){const a=$('#acik').value.trim();if(!a){toast('Bulguyu yazın');return}
+    const b=[...(kDoc(S.sec)?.bulgular||[]),{id:'b'+Date.now().toString(36),seviye:$('#sev').value,kategori:$('#kat').value,aciklama:a,tutar:r2(parseTL($('#tutar').value)),duzeltildi:false,tarih:today(),kaynak:'el'}];
+    await kSet(S.sec,{bulgular:b,kontrolTarihi:today()});toast('Bulgu eklendi');render();return}
+  if(f.id==='fForm'){const ad=$('#fAd').value.trim();if(!ad)return;const tur=$('#fTur').value;const id='f'+Date.now().toString(36);await fSet(id,{ad,tur,durum:'Aktif',kdv1:tur!=='GRÇ',sira:1000+Object.keys(S.firmalar).length});toast('Firma eklendi');render()}});
+
+// ---------- otomatik kontrol: dosya okuma
+/*@@OTO_BUNDLE@@*/
+const dosyaMi=e=>{const t=e.dataTransfer&&e.dataTransfer.types;return !!t&&[...t].includes('Files')};
+let surDerin=0;const surBitir=()=>{surDerin=0;const z=$('#drop');if(z)z.classList.remove('over')};
+window.addEventListener('dragenter',e=>{if(!dosyaMi(e))return;e.preventDefault();surDerin++;const z=$('#drop');if(z)z.classList.add('over')});
+window.addEventListener('dragover',e=>{if(!dosyaMi(e))return;e.preventDefault();try{e.dataTransfer.dropEffect='copy'}catch{}});
+window.addEventListener('dragleave',e=>{if(!dosyaMi(e))return;if(--surDerin<=0)surBitir()});
+window.addEventListener('drop',e=>{if(!dosyaMi(e))return;e.preventDefault();surBitir();const fs=[...e.dataTransfer.files];if(!fs.length)return;
+  if(S.tab!=='kontrol'||!S.sec){toast('Önce Kontrol sekmesinde firmayı açın, sonra dosyaları bırakın');return}dosyalarEkle(fs)});
+
+{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);S.donem=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`}
+render();
+(async()=>{const c=window.claude;if(!c||!c.use){$('#main').innerHTML='<div class="panel empty">Bu sayfa claude.ai üzerinde açıldığında kontrol kayıtlarına bağlanır.</div>';$('#sub').textContent='Bağlantı yok';return}
+  const [db,dl,sm]=await Promise.all([c.use('db'),c.use('downloads'),c.use('sample')]);S.dl=dl;S.sample=sm;
+  if(!db){$('#main').innerHTML='<div class="panel empty">Kayıtlara bağlanılamadı. claude.ai\'de oturum açıkken sayfayı yeniden açın.</div>';$('#sub').textContent='Bağlantı yok';return}
+  S.db=db;const seen=new Set();
+  const sub=(col)=>db.collection(col).onSnapshot(snap=>{const o={};snap.docs.forEach(d=>o[d.id]=d.data());S[col]=o;if(!seen.has(col)){seen.add(col);S.ready++}render()},err=>toast('Bağlantı kesildi: '+err.code));
+  sub('firmalar');sub('kontroller');sub('aktarim');sub('sablonlar');
+})();
+})();
+</script>
